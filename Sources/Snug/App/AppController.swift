@@ -27,7 +27,7 @@ final class AppController: Sendable {
     /// --preview-screens：不等远程就建出开着的屏
     private let preview: Bool
     /// 登记的远控适配器，按登记顺序（两家同时报在场时归第一家）
-    private let remotes = Remotes.all.map { $0.make() }
+    private let remotes = Remotes.all.map { $0.adapter.init() }
     private var session = RemoteSession()
     private let touch: TouchTap
     private var watcher: DisplayWatcher?
@@ -49,7 +49,7 @@ final class AppController: Sendable {
         desks = DeskSet(displays: VirtualDisplayService(helper: helper), windows: windows, apps: apps,
                         arrangement: DisplayArrangementService(), paths: paths, defaultZoom: store.config.zoomSteps)
         catalog = AppCatalog(apps: apps, windows: windows, excluding: Set(remotes.flatMap(\.identity.bundleIDs)))
-        touch = TouchTap(sources: remotes.map(\.identity.injector))
+        touch = TouchTap(injectors: remotes.map(\.identity.injector))
         state.config = store.config
         state.previewing = preview
         state.devices = devices
@@ -150,7 +150,7 @@ final class AppController: Sendable {
             refreshScreenRecording()
         }
         // 推流只有一路画面（UU 一次只让一台设备控制，V12），在推哪块屏看这次远程的归属方
-        state.update(\.streamedDisplay, session.current?.observation.streamedDisplay)
+        state.update(\.streamedDisplay, session.tracked?.observation.streamedDisplay)
     }
 
     /// 会话变化统一在这里落地（每拍和菜单的「立即结束」共用）

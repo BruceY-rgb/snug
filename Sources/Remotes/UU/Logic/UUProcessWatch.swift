@@ -34,7 +34,7 @@ package struct UUProcessIDs: Equatable, Sendable {
 }
 
 /// 缓存 UU 的两个进程号。只在应用列表变化时调 refresh()，平时每 0.5 秒一拍只读 processes，
-/// 不再遍历 runningApplications。应用层用 NSWorkspace.runningApplications 的 KVO 驱动 refresh()
+/// 不再遍历 runningApplications。系统部分（UURemoteApp）用 NSWorkspace.runningApplications 的 KVO 驱动 refresh()
 @MainActor
 package final class UUProcessWatch {
     private let read: @MainActor () -> [RunningAppIdentity]

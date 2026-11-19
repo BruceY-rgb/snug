@@ -15,14 +15,14 @@ do {
 
 switch mode {
 case .render(let target, let output):
-    // 只渲染 PNG：不建 AppController、不起感知器、不碰屏幕和窗口
+    // 只渲染 PNG：不建 AppController、不起远控适配器、不碰屏幕和窗口
     exit(MainActor.assumeIsolated { Renderer.run(target, output: output) } ? 0 : 1)
 case .dumpRemote(let name):
     exit(MainActor.assumeIsolated { Remotes.dump(name) })
 case .checkRemote(let name, let hours):
     exit(MainActor.assumeIsolated { Remotes.check(name, hours: hours) })
 case .probeScreens(let screens):
-    // 实测用：不建 AppController、不起感知器，只管实验屏。虚拟屏要在跑着的 GUI 进程里才上线
+    // 实测用：不建 AppController、不起远控适配器，只管实验屏。虚拟屏要在跑着的 GUI 进程里才上线
     let app = NSApplication.shared
     let probe = MainActor.assumeIsolated { ScreenProbe(screens: screens) }
     app.delegate = probe

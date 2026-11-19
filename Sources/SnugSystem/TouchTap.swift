@@ -13,12 +13,12 @@ public final class TouchTap {
     private let regions = OSAllocatedUnfairLock<[TouchRegion]>(initialState: [])
     private var session: TapSession?
     /// 接管哪些进程注入的事件：各家已登记的远控
-    private let sources: [InjectedEventSource]
+    private let injectors: [InjectedEventSource]
     /// 手机上点了屏上那个窗口的关闭按钮（核对过、点击已经吞掉了），交回窗口编号：在主线程上调
     public var onCloseWindow: ((UInt32) -> Void)?
 
-    public init(sources: [InjectedEventSource]) {
-        self.sources = sources
+    public init(injectors: [InjectedEventSource]) {
+        self.injectors = injectors
     }
 
     /// 只在这几块范围里翻译手势，一块都没有就关掉监听。范围变了（换档、屏幕重排）照样调，监听不用重开。
@@ -35,7 +35,7 @@ public final class TouchTap {
     /// 起监听线程，等它报告监听建没建成
     private func start() -> Bool {
         guard session == nil else { return true }
-        let next = TapSession(regions: regions, sources: sources) { [weak self] window in
+        let next = TapSession(regions: regions, injectors: injectors) { [weak self] window in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.onCloseWindow?(window) } }
         }
         guard next.start() else {
@@ -43,7 +43,7 @@ public final class TouchTap {
             return false
         }
         session = next
-        Log.info("手势翻译已开启（只接管 \(sources.map(\.executableName).joined(separator: "、")) 发来、在 Snug 屏里的操作）")
+        Log.info("手势翻译已开启（只接管 \(injectors.map(\.executableName).joined(separator: "、")) 发来、在 Snug 屏里的操作）")
         return true
     }
 
@@ -71,9 +71,9 @@ private final class TapSession: @unchecked Sendable {
     /// 这一下按在哪块范围里：之后的拖动、抬起跟着这一下走，手指滑出范围也一样
     private var pressed: TouchRegion?
 
-    init(regions: OSAllocatedUnfairLock<[TouchRegion]>, sources: [InjectedEventSource], closeWindow: @escaping @Sendable (UInt32) -> Void) {
+    init(regions: OSAllocatedUnfairLock<[TouchRegion]>, injectors: [InjectedEventSource], closeWindow: @escaping @Sendable (UInt32) -> Void) {
         self.regions = regions
-        injected = InjectedEvents(sources: sources)
+        injected = InjectedEvents(injectors: injectors)
         self.closeWindow = closeWindow
     }
 
@@ -131,7 +131,7 @@ private final class TapSession: @unchecked Sendable {
             Log.warn("手势翻译的事件监听被系统停用（\(type == .tapDisabledByTimeout ? "回调超时" : "用户输入")），已重新开启")
             return pass
         }
-        guard let kind = TouchEvents.kind(of: type), !TouchEvents.isReplay(event), injected.injected(event) else { return pass }
+        guard let kind = TouchEvents.kind(of: type), !TouchEvents.isReplay(event), injected.contains(event) else { return pass }
 
         let input = TouchInput(kind, at: event.location, time: ProcessInfo.processInfo.systemUptime)
         if kind == .press { pressed = regions.withLock { $0 }.first { $0.frame.contains(event.location) } }

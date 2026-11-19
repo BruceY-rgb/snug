@@ -68,11 +68,17 @@ public struct RemoteReading: Equatable, Sendable {
 /// 一家远控的适配器：盯着这家远控在本机留下的痕迹（进程、日志、界面），每拍交一份观测
 @MainActor
 public protocol RemoteAdapter: AnyObject {
-    var identity: RemoteIdentity { get }
+    /// 身份是这家远控的，不是某个实例的：登记处、诊断命令、运行中的适配器都从这里取，只有一份
+    static var identity: RemoteIdentity { get }
+    init()
     /// App 开始监控时调一次
     func start()
     /// 退出收尾前调一次
     func stop()
     /// 每拍调一次。wallClock 是墙钟（系统日志的时间戳是墙钟）；会话层另用单调时钟
     func sample(wallClock: Date) -> RemoteObservation
+}
+
+extension RemoteAdapter {
+    public var identity: RemoteIdentity { Self.identity }
 }

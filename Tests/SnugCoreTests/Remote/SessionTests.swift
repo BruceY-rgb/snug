@@ -113,6 +113,19 @@ struct RemoteSessionTests {
         #expect(update(&s, absent, 316.7) == [.ended])
     }
 
+    @Test("会话日志的写法逐字固定（抽出适配层前由 AppController 写，措辞一个字没改；自检按它解析）")
+    func logLines() {
+        #expect(SessionTransition.began(controllers: []).logLine == "会话：开始（控制端 读不到名字）")
+        #expect(SessionTransition.began(controllers: ["iPhone", "iPad"]).logLine == "会话：开始（控制端 iPhone、iPad）")
+        #expect(SessionTransition.resumed(controllers: ["iPhone"]).logLine == "会话：重连上，仍是同一次远程（控制端 iPhone）")
+        #expect(SessionTransition.controllersChanged(["iPad"]).logLine == "会话：控制端变为 iPad")
+        #expect(SessionTransition.interrupted.logLine == "会话：断开，等 15s 看会不会重连")
+        #expect(SessionTransition.ended.logLine == "会话：结束")
+        #expect(RemoteSession.endedNowLine == "会话：立即结束（不等重连窗口）")
+        #expect(RemoteSession.otherPresentLine(reading(present("iPad"), from: otherRemote), owner: fakeRemote)
+                == "另有 乙 报告连接，本次远程归 甲（在场 [\"iPad\"]）")
+    }
+
     @Test("自扰静默期经 RemoteSession 转给 tracker")
     func selfInduced() {
         var s = RemoteSession()

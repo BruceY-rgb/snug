@@ -5,7 +5,7 @@ import SnugCore
 
 @MainActor
 package final class UURemoteAdapter: RemoteAdapter {
-    package let identity = UURemote.identity
+    package static let identity = UURemote.identity
     private let controllers = ControllerReader()
     private let captureLog = CaptureLogWatcher()
 

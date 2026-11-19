@@ -17,8 +17,8 @@ struct OwnershipTests {
         #expect(update(&s, 甲: present("iPhone", display: 7), 乙: present("iPad", display: 9), 0.5) == [])
         #expect(s.owner == fakeRemote)
         #expect(s.controllers == ["iPhone"])
-        #expect(s.current?.remote == fakeRemote)
-        #expect(s.current?.observation.streamedDisplay == 7)
+        #expect(s.tracked?.remote == fakeRemote)
+        #expect(s.tracked?.observation.streamedDisplay == 7)
     }
 
     @Test("甲断开后，重连等待期里乙连入：算同一次远程（resumed），归属、推流屏改取乙的")
@@ -29,7 +29,7 @@ struct OwnershipTests {
         #expect(s.owner == fakeRemote)
         #expect(update(&s, 甲: absent, 乙: present("iPad", display: 9), 5) == [.resumed(controllers: ["iPad"])])
         #expect(s.owner == otherRemote)
-        #expect(s.current?.observation.streamedDisplay == 9)
+        #expect(s.tracked?.observation.streamedDisplay == 9)
     }
 
     @Test("断开后都不在场：交给连接判定的是归属方的真实观测，不是登记顺序里的第一家")
@@ -38,7 +38,7 @@ struct OwnershipTests {
         _ = update(&s, 甲: absent, 乙: present("iPad"), 0)
         #expect(s.owner == otherRemote)
         #expect(update(&s, 甲: absent, 乙: absent, 1.6) == [.interrupted])
-        #expect(s.current?.remote == otherRemote)
+        #expect(s.tracked?.remote == otherRemote)
     }
 
     @Test("空闲时同一拍两家都报在场：按登记顺序归第一家")
@@ -75,7 +75,7 @@ struct OwnershipTests {
                                                      (3.6, absent), (5, present("iPad")), (6, absent), (30, absent)]
         for (seconds, observation) in script {
             _ = s.update([reading(observation)], now: at(seconds))
-            #expect(s.current == reading(observation))
+            #expect(s.tracked == reading(observation))
             #expect(s.owner == (s.inEpisode ? fakeRemote : nil))
         }
     }
@@ -86,7 +86,7 @@ struct OwnershipTests {
         _ = s.update([reading(present())], now: at(0))
         _ = s.update([reading(absent)], now: at(1.6))
         #expect(s.update([], now: at(10)) == [])
-        #expect(s.current == nil)
+        #expect(s.tracked == nil)
         #expect(s.update([], now: at(16.7)) == [.ended])
     }
 }

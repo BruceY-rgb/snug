@@ -1,5 +1,5 @@
 // --render-*：把界面渲染成 PNG 后退出。只构造视图和一份样例 AppState，
-// 不建 AppController、不起感知器、不碰屏幕和窗口
+// 不建 AppController、不起远控适配器、不碰屏幕和窗口
 import AppKit
 import SwiftUI
 import SnugCore

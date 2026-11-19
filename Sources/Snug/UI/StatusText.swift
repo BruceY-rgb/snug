@@ -44,7 +44,7 @@ struct StatusText: Equatable {
         }
         if states.contains(.preparing) { return "正在准备屏幕" }
         if states.contains(.failed) { return "有屏幕创建失败" }
-        if states.contains(where: { $0.display != nil }) { return s.remoteName.map { "在 \($0) 中选择 Snug 的屏" } ?? "选择 Snug 的屏" }
+        if let remote = s.remoteName, states.contains(where: { $0.display != nil }) { return "在 \(remote) 中选择 Snug 的屏" }
         return s.desks.dismissed.isEmpty ? nil : "本次远程已退出这些屏"
     }
 }

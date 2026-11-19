@@ -31,7 +31,6 @@ let package = Package(
             dependencies: [
                 "SnugCore",
                 "SnugSystem",
-                "RemoteUU",
                 "RemoteUUSystem",
                 .product(name: "PermissionFlow", package: "PermissionFlow"),
             ]

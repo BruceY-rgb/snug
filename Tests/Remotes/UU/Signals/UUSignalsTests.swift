@@ -20,6 +20,7 @@ struct UUSignalsTests {
         #expect(UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: nil).isPresent)
         #expect(UUSignals(overlayVisible: false, controllers: .shown(["iPhone"]), captureActive: nil).isPresent)
         #expect(UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: true).isPresent)
+        #expect(UUSignals(overlayVisible: false, controllers: .unreadable, captureActive: true).isPresent)
         for table in [ControllerTable.unreadable, .unrecognized] {
             for captureActive in [nil, false] as [Bool?] {
                 #expect(!UUSignals(overlayVisible: false, controllers: table, captureActive: captureActive).isPresent)
@@ -41,6 +42,8 @@ struct UUSignalsTests {
             #expect(unknown.controllers.isEmpty)
         }
         #expect(UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: false).observation(streamedDisplay: nil).present)
+        #expect(UUSignals(overlayVisible: false, controllers: .unreadable, captureActive: true).observation(streamedDisplay: 79)
+                == RemoteObservation(present: true, controllers: [], streamedDisplay: 79, evidence: "overlay=否 控制端=读不到 capture=是"))
     }
 
     @Test("身份：日志名「UU」让日志逐字不变；资源库排除 UU 主程序；手势只接管 UURemoteServer")

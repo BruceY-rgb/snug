@@ -28,8 +28,8 @@ public struct RemoteSession: Sendable {
     public private(set) var episode = SessionEpisode()
     /// 这次远程归哪家：连入时定下，会话结束时清空
     public private(set) var owner: RemoteIdentity?
-    /// 这一拍交给连接判定的那份观测：归属方的；还没有归属时是第一家的
-    public private(set) var current: RemoteReading?
+    /// 连接判定这一拍跟的是哪份观测：归属方的；还没有归属时是第一家报在场的，都不在场是第一家的
+    public private(set) var tracked: RemoteReading?
     /// 这次远程里已经记过「另有一家报在场」的
     private var noticed: Set<String> = []
 
@@ -48,10 +48,9 @@ public struct RemoteSession: Sendable {
             clearOwner()
         }
         let mine = owner.flatMap { owner in readings.first { $0.remote == owner } }
-        let fed = tracker.isConnected ? mine : readings.first { $0.observation.present } ?? mine ?? readings.first
-        current = fed
-        if let fed {
-            out += feed(fed, now: now)
+        tracked = tracker.isConnected ? mine : readings.first { $0.observation.present } ?? mine ?? readings.first
+        if let tracked {
+            out += feed(tracked, now: now)
         }
         for t in out { Log.info(t.logLine) }
         if tracker.isConnected, let owner { noteOthers(readings, owner: owner) }
@@ -76,7 +75,7 @@ public struct RemoteSession: Sendable {
     private mutating func noteOthers(_ readings: [RemoteReading], owner: RemoteIdentity) {
         for other in readings where other.remote != owner && other.observation.present {
             guard noticed.insert(other.remote.logName).inserted else { continue }
-            Log.info("另有 \(other.remote.logName) 报告连接，本次远程归 \(owner.logName)（\(other.observation.evidence)）")
+            Log.info(Self.otherPresentLine(other, owner: owner))
         }
     }
 
@@ -100,6 +99,11 @@ public struct RemoteSession: Sendable {
 
     /// 「立即结束」写进日志的一行（SnugLogDigest 认它是远程结束）
     static let endedNowLine = "会话：立即结束（不等重连窗口）"
+
+    /// 已连接时别家也报在场，记下的一行
+    static func otherPresentLine(_ other: RemoteReading, owner: RemoteIdentity) -> String {
+        "另有 \(other.remote.logName) 报告连接，本次远程归 \(owner.logName)（\(other.observation.evidence)）"
+    }
 }
 
 extension SessionTransition {
