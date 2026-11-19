@@ -330,7 +330,7 @@ scripts/snug install   # build, install, and launch
 - [Better Remote](https://github.com/pincc-debug/better-remote)（MIT）：pincc-debug 作、UU远程 での 1 本指スクロールの手法
 - [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow)（MIT）：jaywcjlove（小弟调调）作、権限オンボーディングとドラッグして許可するパネル
 - [FreeDisplay](https://github.com/huberdf/FreeDisplay)（MIT）：huberdf 作、`CGVirtualDisplay` インターフェースの宣言
-- コミュニティの PR 作者：bubble、gencheng liu、Rongzheng Liu（#10、全画面 Space での UU远程 ウィンドウの読み取り）；yupeng（#26、ディスプレイをまたぐウィンドウをメインディスプレイ経由でルーティング）；李小双（#30、#36、切断直後のセッション終了と、画面削除前および再接続待ち中のポインタの画面外への移動）；LI Long（#31、マルチディスプレイのウィンドウ復元とメニューバー配置の調査）
+- コミュニティの PR 作者：bubble、gencheng liu、Rongzheng Liu（#10、全画面 Space での UU远程 ウィンドウの読み取り）；yupeng（#26、ディスプレイをまたぐウィンドウをメインディスプレイ経由でルーティング）；李小双（#30、#36、切断直後のセッション終了と、画面削除前および再接続待ち中のポインタの画面外への移動）；LI Long（#31、マルチディスプレイのウィンドウ復元とメニューバー配置の調査）；11ze（#39、バックグラウンドのスキャンとアクセシビリティ読み取りの負荷軽減）；eltociear（#40、日本語版 README）
 - 仮想ディスプレイの実装は [DeskPad](https://github.com/Stengo/DeskPad)、[Side Screen](https://github.com/tranvuongquocdat/SideScreen)、Chromium を参考にしています
 
 ## ⭐ スター履歴

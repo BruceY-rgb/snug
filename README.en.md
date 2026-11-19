@@ -330,7 +330,7 @@ We are equally grateful to the following projects and contributors:
 - [Better Remote](https://github.com/pincc-debug/better-remote) (MIT): by pincc-debug, the approach to one-finger scrolling in UU Remote
 - [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow) (MIT): by jaywcjlove (小弟调调), the permission onboarding and drag-to-authorize panel
 - [FreeDisplay](https://github.com/huberdf/FreeDisplay) (MIT): by huberdf, the `CGVirtualDisplay` interface declarations
-- Community PR authors: bubble, gencheng liu, and Rongzheng Liu (#10, reading UU Remote windows in full-screen Spaces); yupeng (#26, routing cross-display windows through the main display); 李小双 (#30, #36, ending a session immediately after disconnecting and moving the pointer off a screen before removal and while waiting to reconnect); LI Long (#31, investigating multi-display window restoration and menu bar placement); 11ze (#39, reducing background scanning and Accessibility read overhead)
+- Community PR authors: bubble, gencheng liu, and Rongzheng Liu (#10, reading UU Remote windows in full-screen Spaces); yupeng (#26, routing cross-display windows through the main display); 李小双 (#30, #36, ending a session immediately after disconnecting and moving the pointer off a screen before removal and while waiting to reconnect); LI Long (#31, investigating multi-display window restoration and menu bar placement); 11ze (#39, reducing background scanning and Accessibility read overhead); eltociear (#40, Japanese README)
 - The virtual display implementation draws on [DeskPad](https://github.com/Stengo/DeskPad), [Side Screen](https://github.com/tranvuongquocdat/SideScreen), and Chromium
 
 ## ⭐ Star History
