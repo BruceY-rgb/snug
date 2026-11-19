@@ -289,9 +289,10 @@ final class LibraryWindowController: NSObject, NSWindowDelegate {
             DispatchQueue.main.async { [weak self] in self?.window?.close() }
             return
         }
+        let source = model.source
         if state.watching(target), window?.isMiniaturized == false {
             // 这块屏正在放窗口、打开 App：同屏上的面板，这时不为它刷（和搬窗口排同一条队）
-            catalog.want(Self.owner, busy: state.desks.desks[target]?.work != nil, spots: true)
+            catalog.want(Self.owner, busy: state.desks.desks[target]?.work != nil, spots: source == .running)
         } else {
             catalog.release(Self.owner)
         }

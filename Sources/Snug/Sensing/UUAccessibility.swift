@@ -25,6 +25,9 @@ enum UUAccessibility {
     private static func role(_ el: AXUIElement) -> String? { AX.string(el, kAXRoleAttribute) }
     private static func value(_ el: AXUIElement) -> String? { AX.string(el, kAXValueAttribute) }
 
+    /// 一次读角色、文字和子节点；批量接口整体失败时退回逐个读
+    private static let nodeAttributes = [kAXRoleAttribute, kAXValueAttribute, kAXChildrenAttribute]
+
     /// 窗口列表之外再读主窗口和焦点窗口：别的 App 占着全屏 Space 时，UU 的 AXWindows 可能是空的，
     /// 主窗口引用却还有效。按 AX 对象去重，不激活 UU、不切 Space（思路来自社区 PR #10，作者 Rongzheng Liu）
     private static func windowElements(pid: pid_t) -> [AXUIElement] {
@@ -55,13 +58,31 @@ enum UUAccessibility {
         guard walk.path.count < maxDepth, walk.count <= maxNodes else { throw TooLarge() }
         walk.path.insert(node)
         defer { walk.path.remove(node) }
-        let children = try AX.children(node).compactMap { try snapshot($0, walk: &walk) }
-        return UUElement(kind(node), children)
+        let (kind, nodes) = read(node)
+        let children = try nodes.compactMap { try snapshot($0, walk: &walk) }
+        return UUElement(kind, children)
     }
 
-    private static func kind(_ node: AXUIElement) -> UUElement.Kind {
-        switch role(node) {
-        case kAXStaticTextRole: value(node).map(UUElement.Kind.text) ?? .other
+    private static func read(_ node: AXUIElement) -> (kind: UUElement.Kind, children: [AXUIElement]) {
+        if let values = AX.attributes(node, nodeAttributes), values.count >= 3 {
+            return (kind(role: values[0] as? String, value: values[1] as? String),
+                    children(values[2], of: node))
+        }
+        // 批量接口整体失败：退回逐个读
+        return (kind(role: role(node), value: value(node)), AX.children(node))
+    }
+
+    /// 子节点：CFNull 或 AXValue 的错误都按没有子节点处理（和逐个读的失败结果一致）；意外的类型退回逐个读
+    private static func children(_ value: AnyObject, of node: AXUIElement) -> [AXUIElement] {
+        if let children = value as? [AXUIElement] { return children }
+        if value is NSNull { return [] }
+        if CFGetTypeID(value) == AXValueGetTypeID(), AXValueGetType(value as! AXValue) == .axError { return [] }
+        return AX.children(node)
+    }
+
+    private static func kind(role: String?, value: String?) -> UUElement.Kind {
+        switch role {
+        case kAXStaticTextRole: value.map(UUElement.Kind.text) ?? .other
         case kAXTableRole: .table
         case kAXRowRole: .row
         default: .other

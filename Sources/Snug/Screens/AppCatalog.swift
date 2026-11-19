@@ -33,8 +33,12 @@ final class AppCatalog {
     /// 不忙的里面有要窗口在哪块屏的：没有就不拷全系统的窗口表
     private var locating: Bool { demand.values.contains { $0.spots && !$0.busy } }
     @ObservationIgnored private var icons: [String: NSImage] = [:]
-    /// forget 过几次：刷新读到一半时有东西没了，读出来的那份可能还带着它，丢掉重读
+    /// forget/reset 过几次：刷新读到一半时有东西没了，读出来的那份可能还带着它，丢掉重读
     @ObservationIgnored private var forgotten = 0
+    /// 第一次刷新按最近用过重排，之后只增删、不换位置；跨重启循环保留
+    @ObservationIgnored private var reorder = true
+    /// 重启的循环先发布一次窗口位置，不等整轮 AX 扫描
+    @ObservationIgnored private var spotsFirst = false
 
     init(apps: AppService, windows: WindowService) {
         self.apps = apps
@@ -57,8 +61,14 @@ final class AppCatalog {
 
     /// 露着资源库：busy 是这块屏正在放窗口、打开 App（列表被盖住）；spots 是还要每个窗口在哪块屏（电脑屏的资源库窗口）
     func want(_ owner: String, busy: Bool = false, spots: Bool = false) {
+        let hadSpots = locating
         demand[owner] = Demand(busy: busy, spots: spots)
-        startRefreshing()
+        // 新出现的窗口位置需求（切回「运行中」、从忙恢复）立刻开一轮，不等当前 1.5 秒的等待
+        if locating, !hadSpots {
+            restartRefreshing()
+        } else {
+            startRefreshing()
+        }
     }
 
     /// 收起了：都收起就停
@@ -68,27 +78,40 @@ final class AppCatalog {
     }
 
     private func startRefreshing() {
-        guard refreshing == nil, let apps, let windows else { return }
-        scanning = Task { [weak self] in
-            let list = AppList.sorted(await apps.installed())
-            guard let self, !Task.isCancelled, list != installed else { return }
-            installed = list
+        guard let apps, let windows else { return }
+        if scanning == nil {
+            scanning = Task { [weak self] in
+                let list = AppList.sorted(await apps.installed())
+                guard let self, !Task.isCancelled, list != installed else { return }
+                installed = list
+            }
         }
+        guard refreshing == nil else { return }
         refreshing = Task { [weak self] in
-            var reorder = true
             while !Task.isCancelled {
                 guard let self else { return }
                 if !paused {
                     let before = forgotten
-                    let fresh = await windows.withWindows(apps.running())
-                    // 紧跟着列表读，两边对得上
                     var located: [WindowKey: WindowSpot]?
-                    if locating { located = await windows.spots() }
+                    if locating, spotsFirst {
+                        located = await windows.spots()
+                        guard !Task.isCancelled, forgotten == before else { continue }
+                        // 先发布一次，切回「运行中」时不等整轮 AX 扫描
+                        if let located, locating, located != spots { spots = located }
+                        spotsFirst = false
+                    }
+                    let fresh = await windows.withWindows(apps.running())
                     guard !Task.isCancelled else { return }
+                    // 紧跟着列表读，两边对得上；重启轮前面预读过一遍，这里补上列表扫描期间的变化
+                    if locating {
+                        located = await windows.spots()
+                        guard !Task.isCancelled else { return }
+                    }
+                    spotsFirst = false
                     guard forgotten == before else { continue }
                     let next = reorder ? fresh : AppList.keepingOrder(of: running, updatedWith: fresh)
                     if next != running { running = next }
-                    if let located, located != spots { spots = located }
+                    if let located, locating, located != spots { spots = located }
                     loaded = true
                     reorder = false
                 }
@@ -97,16 +120,27 @@ final class AppCatalog {
         }
     }
 
+    private func restartRefreshing() {
+        spotsFirst = true
+        refreshing?.cancel()
+        refreshing = nil
+        startRefreshing()
+    }
+
     private func stopRefreshing() {
+        reorder = true
+        spotsFirst = false
         refreshing?.cancel()
         refreshing = nil
         scanning?.cancel()
         scanning = nil
     }
 
-    /// 一次远程结束：清空，下次露出时显示「正在读取」，不拿上次的旧列表。需求不在这里清：各块屏的面板撤掉时各自 release，
+    /// 一次远程结束：清空，在途的刷新结果作废，下次露出时显示「正在读取」，不拿上次的旧列表。需求不在这里清：各块屏的面板撤掉时各自 release，
     /// 电脑屏的资源库窗口跟着它的屏关掉时 release（这一刻它可能还没关完，需求还在就接着刷新，等它 release 再停）
     func reset() {
+        forgotten += 1
+        reorder = true
         running = []
         spots = [:]
         loaded = false

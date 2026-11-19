@@ -29,6 +29,15 @@ public enum AX {
         return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
     }
 
+    /// 一次读多个属性。返回的数组和 names 一一对应：没有值、出错的位置可能是 CFNull 或 AXValue 的错误；
+    /// 整体失败返回 nil，调用方退回逐个读
+    public static func attributes(_ element: AXUIElement, _ names: [String]) -> [AnyObject]? {
+        var values: CFArray?
+        let result = AXUIElementCopyMultipleAttributeValues(element, names as CFArray, [], &values)
+        guard result == .success, let values = values as? [AnyObject] else { return nil }
+        return values
+    }
+
     public static func string(_ element: AXUIElement, _ name: String) -> String? { attribute(element, name) as? String }
 
     static func flag(_ element: AXUIElement, _ name: String) -> Bool { (attribute(element, name) as? Bool) == true }
@@ -120,11 +129,21 @@ public enum AX {
     }
 
     static func frame(_ element: AXUIElement) -> CGRect? {
+        if let values = attributes(element, [kAXPositionAttribute, kAXSizeAttribute]), values.count >= 2 {
+            return frame(values[0], values[1])
+        }
+        // 批量接口整体失败：退回逐个读
         guard let p = attribute(element, kAXPositionAttribute), let s = attribute(element, kAXSizeAttribute),
-              CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
-        var origin = CGPoint.zero, size = CGSize.zero
-        guard AXValueGetValue(p as! AXValue, .cgPoint, &origin), AXValueGetValue(s as! AXValue, .cgSize, &size) else { return nil }
-        return CGRect(origin: origin, size: size)
+              let frame = frame(p, s) else { return nil }
+        return frame
+    }
+
+    private static func frame(_ position: AnyObject, _ size: AnyObject) -> CGRect? {
+        guard CFGetTypeID(position) == AXValueGetTypeID(), CFGetTypeID(size) == AXValueGetTypeID() else { return nil }
+        var origin = CGPoint.zero, extent = CGSize.zero
+        guard AXValueGetValue(position as! AXValue, .cgPoint, &origin),
+              AXValueGetValue(size as! AXValue, .cgSize, &extent) else { return nil }
+        return CGRect(origin: origin, size: extent)
     }
 
     static func setPosition(_ element: AXUIElement, _ point: CGPoint) {

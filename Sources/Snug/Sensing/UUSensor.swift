@@ -14,7 +14,10 @@ final class UUSensor {
     private let controllers = ControllerReader()
     private let captureLog = CaptureLogWatcher()
 
-    func start() { captureLog.start() }
+    func start() {
+        UURemoteApp.start()
+        captureLog.start()
+    }
     func stop() { captureLog.stop() }
 
     /// now 是墙钟：推流日志的时间戳是墙钟

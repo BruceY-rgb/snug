@@ -5,15 +5,41 @@ import SnugCore
 
 @MainActor
 enum UURemoteApp {
-    /// UU远程 主程序的进程号；没在运行返回 nil
-    static func pid() -> pid_t? {
-        NSRunningApplication.runningApplications(withBundleIdentifier: UURemote.bundleID).first?.processIdentifier
+    /// 运行中的 App 列表变了才重新认 UU 的进程；每 0.5 秒一拍只读这里
+    private static let watch = UUProcessWatch {
+        NSWorkspace.shared.runningApplications.map {
+            RunningAppIdentity(pid: $0.processIdentifier,
+                               bundleID: $0.bundleIdentifier,
+                               executableName: $0.executableURL?.lastPathComponent)
+        }
+    }
+    private static var observation: NSKeyValueObservation?
+
+    /// 开始跟踪运行中的 App。重复调用无副作用
+    static func start() {
+        guard observation == nil else { return }
+        let watch = watch
+        log(watch.processes)
+        observation = NSWorkspace.shared.observe(\.runningApplications, options: [.initial, .new]) { _, _ in
+            DispatchQueue.main.async { MainActor.assumeIsolated { refresh(watch) } }
+        }
     }
 
+    /// UU远程 主程序的进程号；没在运行返回 nil
+    static func pid() -> pid_t? { watch.processes.main }
+
     /// UURemoteServer（被远程时推流的后台进程）的进程号；没在运行返回 nil。它没有 bundle ID，按可执行文件名认
-    static func serverPID() -> pid_t? {
-        NSWorkspace.shared.runningApplications
-            .first { $0.executableURL?.lastPathComponent == UURemote.serverProcess }?.processIdentifier
+    static func serverPID() -> pid_t? { watch.processes.server }
+
+    private static func refresh(_ watch: UUProcessWatch) {
+        guard watch.refresh() else { return }
+        log(watch.processes)
+    }
+
+    private static func log(_ processes: UUProcessIDs) {
+        let main = processes.main.map(String.init) ?? "没在运行"
+        let server = processes.server.map(String.init) ?? "没在运行"
+        Log.info("UU 进程：主程序 \(main)，后台 \(server)")
     }
 
     /// UURemoteServer 的覆盖窗口在屏：被远程时 UU 会在本机屏幕上放一个提示窗口
