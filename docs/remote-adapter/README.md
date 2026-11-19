@@ -2,7 +2,7 @@
 
 > 2026-11-19 · 分支 `remote-adapter` · 过程文档，合并前删除，结论并入正式文档与记忆
 >
-> 来源：三个只读调研 agent 的报告（[代码耦合与接口](research/coupling.md)、[目录与模块](research/structure.md)、[测试](research/tests.md)），加上我的交叉核对与取舍。第 9 节是待拍板项。
+> 来源：三个只读调研 agent 的报告（[代码耦合与接口](research/coupling.md)、[目录与模块](research/structure.md)、[测试](research/tests.md)），加上我的交叉核对与取舍。第 9 节的 11 项已于 2026-11-19 拍板：全部按推荐执行。
 
 ## 1. 结论
 
@@ -14,7 +14,7 @@
   - 核心不认识任何适配器，由编译器保证；字符串里的残留，由 `scripts/snug check` 门禁保证。
 - **接口很小：** 身份，加上 `start`、`stop`、`sample` 三个方法。手势形态、模式恢复、主屏策略、时序常量都不进接口：要么两家情况相同，要么核心已有通用机制兜住。
 - **只有 UU 时行为不变，日志逐字不变**，验收时拿真机日志逐行对照。
-- 共 11 项待拍板（第 9 节），每项都附了推荐。
+- 11 项决定已拍板（第 9 节），全部按推荐执行。
 
 ## 2. 切分原则
 
@@ -264,9 +264,9 @@ public struct RemoteObservation: Equatable, Sendable {
 
 类型引用由编译器管（4.2 节），字符串残留由这些门禁管。
 
-## 9. 待拍板
+## 9. 已拍板（2026-11-19，全部按推荐）
 
-| # | 问题 | 推荐 | 备选 |
+| # | 问题 | 决定 | 未采用 |
 |---|---|---|---|
 | 1 | 每家几个目标 | **两个**（Logic、System），纯逻辑与系统调用的分层由编译器把关，和现有 SnugCore/SnugSystem 的分法一致 | 一个目标、内部两个文件夹，再加 grep 门禁 |
 | 2 | 适配器放哪 | **归到 `Sources/Remotes/<家>/`、`Tests/Remotes/<家>/`**（Package.swift 写明 path），「接新远控去哪看」一眼可见 | 默认路径平铺：`Sources/RemoteUU`、`Sources/RemoteUUSystem` |
