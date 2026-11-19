@@ -97,12 +97,12 @@ App 将本机已安装的 Snug 按同样方式切块，只按字节范围从最�
 
 ```
 SnugSystem      → SnugCore
-RemoteUU        → SnugCore                         纯逻辑：信号怎么认、怎么算在场
+RemoteUU        → SnugCore                         纯逻辑：信号怎么认、怎么算在场（只 import Foundation、SnugCore）
 RemoteUUSystem  → RemoteUU, SnugSystem, SnugCore   调系统：实现 RemoteAdapter、诊断命令
-Snug            → 以上全部；只有 Snug/App/Remotes.swift 认识适配器
+Snug            → SnugCore, SnugSystem, RemoteUUSystem；只有 Snug/App/Remotes.swift 认识适配器
 ```
 
-`Snug/App/Remotes.swift` 是唯一登记处：`AppController` 的适配器列表、资源库的排除名单、手势接管的进程、诊断命令都从这里取。`scripts/snug check` 先查边界：核心与系统层的代码行不出现 UU，只有登记处 import 适配器，核心测试不碰适配器的类型，测试目标与 `Tests/` 目录一一对应，登记的每家都有三个目标和契约驱动。接一家新的远控见 [接入新的远控](remotes/README.md)。
+`Snug/App/Remotes.swift` 是唯一登记处：`AppController` 的适配器列表、资源库的排除名单、手势接管的进程、诊断命令都从这里取。`scripts/snug check` 先查边界：核心与系统层的代码行不出现 UU，只有登记处 import 适配器，核心测试不碰适配器，适配器的纯逻辑只依赖 SnugCore，测试目标与 `Tests/` 目录一一对应，`Sources/Remotes` 下每家都有三个目标、登记和契约驱动（条目见 [接入新的远控](remotes/README.md#防回潮)）。接一家新的远控见 [接入新的远控](remotes/README.md)。
 
 `SnugCore` 的目录依赖单向：`Model`（屏的身份 `ScreenID`、设备的类别和数值等纯值类型）← `Config`、`Persistence` ← `Screens`。配置怎么翻成屏的身份和比例只在 `ScreenPlan` 写一处。
 

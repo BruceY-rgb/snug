@@ -23,18 +23,18 @@ Snug 只对接 UU远程，但对接的部分是一层可替换的适配器：核
 | :--- | :--- |
 | `RemoteIdentity` | 日志名（写进日志与命令行，不含空格、不和别家重名）；界面名；自家 App 的 bundle（不出现在资源库里）；注入事件的进程 |
 | `RemoteObservation` | 在不在场：只在有正面证据时为真；控制端：认不出为空；推流屏：不知道为 nil；信号快照：写进连入、断开日志 |
-| `RemoteAdapter` | `identity`；`start()`、`stop()`；`sample(wallClock:)` 每拍调一次 |
+| `RemoteAdapter` | 静态的 `identity`（身份属于这家远控，登记处、诊断命令、运行中的实例都从这里取）；`init()`；`start()`、`stop()`；`sample(wallClock:)` 每拍调一次 |
 
-不在端口里的：手势形态、屏幕让位、主屏策略、模式恢复、断开时序。这些按 UU远程 实测标定、各家暂时一样，留在核心（[清单](uu.md#留在核心的-uu-实测值)）；新的远控实测不同，改核心并补测试。
+不在端口里的：手势形态、屏幕让位、主屏策略、模式恢复、断开时序。这些按 UU远程 实测标定、各家暂时一样，留在共用代码里（[清单](uu.md#留在共用代码里的-uu-实测值)）；新的远控实测不同，改共用代码并补测试。
 
 ## 步骤
 
-以 RustDesk 为例。名字只用英文字母，目录、目标、驱动都用它（门禁按它找）。
+以 RustDesk 为例。名字只用英文字母，目录、目标、适配器类型、驱动都用它（门禁按 `Sources/Remotes` 下的目录名找）。
 
 1. **目录**：`Sources/Remotes/RustDesk/Logic`（纯逻辑：信号怎么认、怎么算在场，只依赖 `SnugCore`）、`Sources/Remotes/RustDesk/System`（调系统、实现 `RemoteAdapter`）、`Tests/Remotes/RustDesk`
 2. **`Package.swift`**：加 `RemoteRustDesk`、`RemoteRustDeskSystem`、`RemoteRustDeskTests` 三个目标（照 UU 的写法写明 `path`），`Snug` 依赖前两个，`RemoteContractTests` 依赖 `RemoteRustDesk`
-3. **适配器**：纯逻辑里把原始信号映射成 `RemoteObservation`（UU 见 `UUSignals.observation`）；系统部分实现 `RemoteAdapter`。内部类型用 `package`，不用 `public`
-4. **登记**：`Sources/Snug/App/Remotes.swift` 的 `all` 加一行，同时给出 `--dump-remote`、`--check-remote` 的实现。登记顺序即两家同时报在场时的归属顺序
+3. **适配器**：纯逻辑里把原始信号映射成 `RemoteObservation`（UU 见 `UUSignals.observation`），只 import Foundation 和 SnugCore；系统部分实现 `RemoteAdapter`，类型叫 `RustDeskRemoteAdapter`。内部类型用 `package`，不用 `public`
+4. **登记**：`Sources/Snug/App/Remotes.swift` import `RemoteRustDeskSystem`，`all` 加一行 `Entry(adapter: RustDeskRemoteAdapter.self, dump: …, check: …)`，`dump`、`check` 是 `--dump-remote`、`--check-remote` 的实现。登记顺序即两家同时报在场时的归属顺序
 5. **契约测试**：`Tests/RemoteContractTests/Drivers/RustDeskDriver.swift`，把空闲、读不到、连入、推流几种情形翻译成它的原始信号，经它自己的映射交出观测；放进 `drivers`
 6. **验收**：`scripts/snug check` 全绿；真机连一次，Snug.log 里连入、断开、会话几行对得上
 
@@ -46,10 +46,11 @@ Snug 只对接 UU远程，但对接的部分是一层可替换的适配器：核
 
 `scripts/snug check` 在构建之前先查：
 
-- 核心（`SnugCore`）与系统层（`SnugSystem`）的代码行不出现 UU，出处只写在注释里
-- 只有 `Sources/Snug/App/Remotes.swift` 能 import 适配器
-- 核心测试只用假远控，不碰适配器的类型
-- 声明的测试目标与 `Tests/` 下的目录一一对应
-- 每家远控三个目标齐全、已登记、契约测试依赖它并有它的驱动
+- 核心（`SnugCore`）与系统层（`SnugSystem`）的代码行不出现 UU（大小写都算），出处只写在注释里
+- 只有 `Sources/Snug/App/Remotes.swift` 能 import 适配器（`@testable`、`internal import` 等写法同样算）
+- 核心测试只用假远控，不碰适配器的类型、bundle、进程名
+- 适配器的纯逻辑只 import Foundation 和 SnugCore，目标只依赖 SnugCore
+- 声明的测试目标与 `Tests/` 下的目录一一对应（`Package.swift` 交给 SwiftPM 解析，不限写法）
+- `Sources/Remotes` 下每个目录：三个目标的名字与路径对得上、已登记、契约测试依赖它并有它的驱动；叫 `Remote…` 的目标都在 `Sources/Remotes`、`Tests/Remotes` 下
 
 类型引用由编译器拦：核心不依赖任何 `Remote*` 目标，写了也编译不过。

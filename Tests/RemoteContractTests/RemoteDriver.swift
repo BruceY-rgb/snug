@@ -29,5 +29,5 @@ extension RemoteDriver {
     var testDescription: String { identity.logName }
 }
 
-/// 登记的每家远控都要有驱动，顺序跟 Snug/App/Remotes.swift 一致
+/// Sources/Remotes 下的每家远控都要有驱动（scripts/snug check 核对）
 let drivers: [any RemoteDriver] = [UUDriver()]

@@ -37,16 +37,17 @@ UU远程 的适配器，接入方式见 [接入新的远控](README.md)，核心
 UU远程 更新后，先用手机照常连一次（切到 Snug 的屏），再运行 `scripts/snug remote-check uu`。
 
 - **核对项**：UU远程 版本（对照上次核对的版本）；后台进程 `UURemoteServer`；抓屏与编码框架（ScreenCaptureKit、VideoToolbox）是否仍被链接；推流日志能否认出推流的开始、停止与所推的屏；Snug 连入时推流信号是否亮起；能否认出控制端
-- **判定**：位于 `RemoteUU` 的 `UUCheck`，推流日志按正式运行的解析与状态回放，Snug 日志的摘要位于 `SnugCore/Remote/SnugLogDigest`。只核对此刻的 `UURemoteServer` 进程：UU远程 更新即换进程，更新前的远程不计入。远程过、Snug 日志里却认不出连入，报「需留意」（多半是日志写法改了）
+- **判定**：位于 `RemoteUU` 的 `UUCheck`，推流日志按正式运行的解析与状态回放，Snug 日志的摘要位于 `SnugCore/Remote/SnugLogDigest`，只摘归 UU 的远程（别家的远程、控制端不算）。只核对此刻的 `UURemoteServer` 进程：UU远程 更新即换进程，更新前的远程不计入。远程过、Snug 日志里却认不出一次 UU 连入，或连入的信号快照读不出，报「需留意」（多半是日志写法改了）
 - **取证材料**：`~/Library/Logs/Snug-uu-check/`，每次覆盖：报告、UU 推流日志、上一次远程前后 `UURemoteServer` 的全部日志、该时段的 Snug 日志、UU 界面树、链接情况与当前屏幕
 - **核对完成**：报告无问题且手机实测无误后，将 `UUCheck.verifiedVersion` 改为新版本
 - **范围**：只读日志与界面，不操作 UU远程；触控、新连接先推主屏需手机实测，暂未纳入
 
-## 留在核心的 UU 实测值
+## 留在共用代码里的 UU 实测值
 
-以下按 UU远程 实测标定，但不进适配接口：建屏早于知道是哪家远控来连，或者核心已有通用机制兜住。接别家时实测，不同再改核心并补测试。
+以下按 UU远程 实测标定，在核心、系统层或 App 层，各家共用，不进适配接口：建屏早于知道是哪家远控来连，或者已有通用机制兜住。接别家时实测，不同再改并补测试。
 
-- 屏幕比例的让位：手机竖屏上下各 91 点、横屏左右 82+72 点（`ScreenFit`）；平板屏右上角让开约 45 点（`TouchStyle`）
+- 屏幕比例的让位：手机竖屏上下各 91 点、横屏左右 82+72 点（`ScreenFit`）
+- 平板屏右上角让开 50 点，UU 的圆形菜单按钮压着约 45 点（`TouchStyle`、设计令牌 `tabletTopRightClear`）
 - 新连接从主屏开始推流（设为主屏常驻的依据，`ScreenPlan`）
 - 断开防抖 1.5 秒、自扰静默期 5 秒（`ConnectionTracker`）
 - 手势只接管鼠标左键（`TouchEvents`）
