@@ -3,6 +3,7 @@
 // 主线程一卡，后台早就读好的结果也会被当成过期，没有覆盖窗口的会话就会被误判断开
 import Foundation
 import os
+import RemoteUU
 import SnugCore
 import SnugSystem
 

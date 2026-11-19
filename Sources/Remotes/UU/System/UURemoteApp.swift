@@ -1,6 +1,7 @@
 // UU远程 自身的几样直接观测：进程号、覆盖窗口在不在屏
 import AppKit
 import CoreGraphics
+import RemoteUU
 import SnugCore
 
 @MainActor

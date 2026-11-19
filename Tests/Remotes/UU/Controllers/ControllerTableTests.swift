@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import RemoteUU
 @testable import SnugCore
 
 /// 行文字是照 UU 的界面构造的样本（大部分取自 PR #2，作者 Feng GAO）；「远程控制 / 远程协助 / 副屏模式」取自 UU 4.46.0 的界面文案；

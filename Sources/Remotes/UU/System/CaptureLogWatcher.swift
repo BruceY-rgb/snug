@@ -5,6 +5,7 @@
 // UURemoteServer 换了进程（崩溃重启），旧的推流状态作废：它崩溃时不会留下停流的日志。回看也只认当前进程打的日志。
 // 没在跑的时候推流状态报「未知」（nil），连接判定照样靠覆盖窗口和控制端表格
 import Foundation
+import RemoteUU
 import SnugCore
 
 @MainActor

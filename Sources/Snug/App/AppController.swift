@@ -27,7 +27,7 @@ final class AppController: Sendable {
     /// --preview-screens：不等远程就建出开着的屏
     private let preview: Bool
     /// 登记的远控适配器，按登记顺序（两家同时报在场时归第一家）
-    private let remotes: [any RemoteAdapter] = [UUSensor()]
+    private let remotes = Remotes.all.map { $0.make() }
     private var session = RemoteSession()
     private let touch: TouchTap
     private var watcher: DisplayWatcher?

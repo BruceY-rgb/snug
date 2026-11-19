@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import RemoteUU
 @testable import SnugCore
 
 @Suite("UU 进程观察 UUProcessWatch")

@@ -1,6 +1,10 @@
 import Foundation
 import Testing
+@testable import RemoteUU
 @testable import SnugCore
+
+/// 距某个固定时刻多少秒（会话层只看间隔）
+private func at(_ s: Double) -> Date { Date(timeIntervalSinceReferenceDate: 800_000_000 + s) }
 
 @Suite("UU 的三路信号 UUSignals")
 struct UUSignalsTests {

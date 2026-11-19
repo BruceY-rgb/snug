@@ -1,22 +1,23 @@
-// UU远程 兼容自检（scripts/snug uu-check → Snug --check-uu）：UU 一更新，把 Snug 依赖它的几处逐项核对，出一份报告。
-// 这里只做判定，事实由 App 层（Debug/UUCheckRun）收集：UU 的安装与进程、抓屏和编码框架还链不链、
+// UU远程 兼容自检（scripts/snug remote-check uu → Snug --check-remote uu）：UU 一更新，把 Snug 依赖它的几处逐项核对，出一份报告。
+// 这里只做判定，事实由系统部分（RemoteUUSystem 的 UUCheckRun）收集：UU 的安装与进程、抓屏和编码框架还链不链、
 // 一段时间内 UU 的推流日志和 Snug 自己的日志。推流日志用正式运行的那套解析和状态（CaptureLogParser、CaptureSessionState）回放，
 // 查的就是发出去的逻辑。只看日志、不碰 UU，所以要先用手机照常连一次，再回看
 import Foundation
+import SnugCore
 
-public enum UUCheck {
+package enum UUCheck {
     /// 最近一次核对过（自检无问题、手机实测无误）的 UU远程 版本，报告里拿它对照。核对完新版本后改这里
-    public static let verifiedVersion = "4.48.1"
+    package static let verifiedVersion = "4.48.1"
     /// UU 用它抓屏：推流日志里的屏描述、开始与停止都是它打的（见 CaptureLogParser）
-    public static let captureFramework = "ScreenCaptureKit"
+    package static let captureFramework = "ScreenCaptureKit"
     /// UU 用它编码：编码会话的新建与结束用来判断推流中途是不是重启
-    public static let encoderFramework = "VideoToolbox"
-    public static let defaultHours = 4
-    public static let maxHours = 72
+    package static let encoderFramework = "VideoToolbox"
+    package static let defaultHours = 4
+    package static let maxHours = 72
     /// Snug 记到的远程开始，前后这么久内 UU 日志里有推流开始，就算对上
     static let matchWindow: TimeInterval = 15
 
-    public enum Status: Equatable, Sendable {
+    package enum Status: Equatable, Sendable {
         case ok, warn, fail, info
 
         var symbol: String {
@@ -29,48 +30,48 @@ public enum UUCheck {
         }
     }
 
-    public struct Item: Equatable, Sendable {
-        public var status: Status
-        public var title: String
-        public var detail: String
+    package struct Item: Equatable, Sendable {
+        package var status: Status
+        package var title: String
+        package var detail: String
     }
 
     /// 此刻的 UURemoteServer 进程
-    public struct Server: Equatable, Sendable {
-        public var pid: pid_t
+    package struct Server: Equatable, Sendable {
+        package var pid: pid_t
         /// 进程启动的时刻；读不到为 nil
-        public var start: Date?
+        package var start: Date?
 
-        public init(pid: pid_t, start: Date?) {
+        package init(pid: pid_t, start: Date?) {
             self.pid = pid
             self.start = start
         }
     }
 
     /// App 层收集到的事实
-    public struct Facts: Sendable {
-        public var hours: Int
+    package struct Facts: Sendable {
+        package var hours: Int
         /// 回看的起点（此刻往前 hours 小时）
-        public var since: Date
+        package var since: Date
         /// UU远程 的版本；没装为 nil
-        public var version: String?
-        public var appRunning: Bool
+        package var version: String?
+        package var appRunning: Bool
         /// 没在运行为 nil
-        public var server: Server?
+        package var server: Server?
         /// 包里叫 UURemoteServer 的程序（包内路径）
-        public var serverExecutables: [String]
+        package var serverExecutables: [String]
         /// 框架名 → 链接它的程序（包内路径）
-        public var linkers: [String: [String]]
+        package var linkers: [String: [String]]
         /// 回看时间内 UURemoteServer 的推流事件；系统日志读不出来为 nil
-        public var capture: [CaptureLogRecord]?
+        package var capture: [CaptureLogRecord]?
         /// Snug 日志的原文（滚动过的旧日志在前）
-        public var snugLog: [String]
+        package var snugLog: [String]
         /// 此刻在线的 Snug 的屏：设为主屏的那块常驻，建屏的日志可能早在回看之前
-        public var onlineSnugDisplays: Set<DisplayID>
+        package var onlineSnugDisplays: Set<DisplayID>
         /// 此刻 UU 被控页的控制端表格；没读（没有辅助功能权限、UU 没在运行）为 nil
-        public var controllersNow: ControllerTable?
+        package var controllersNow: ControllerTable?
 
-        public init(hours: Int, since: Date, version: String?, appRunning: Bool, server: Server?, serverExecutables: [String],
+        package init(hours: Int, since: Date, version: String?, appRunning: Bool, server: Server?, serverExecutables: [String],
                     linkers: [String: [String]], capture: [CaptureLogRecord]?, snugLog: [String], onlineSnugDisplays: Set<DisplayID>,
                     controllersNow: ControllerTable?) {
             self.hours = hours
@@ -106,7 +107,7 @@ public enum UUCheck {
         }
     }
 
-    public static func evaluate(_ facts: Facts) -> [Item] {
+    package static func evaluate(_ facts: Facts) -> [Item] {
         guard let version = facts.version else {
             return [Item(status: .fail, title: "UU远程", detail: "没装（按 \(UURemote.bundleID) 找不到），其余各项无从核对")]
         }
@@ -129,7 +130,7 @@ public enum UUCheck {
     }
 
     /// 报告正文：标题、结论、逐项
-    public static func report(_ items: [Item], hours: Int, at date: Date) -> String {
+    package static func report(_ items: [Item], hours: Int, at date: Date) -> String {
         let stamp = DateFormatter()
         stamp.locale = Locale(identifier: "en_US_POSIX")
         stamp.dateFormat = "MM-dd HH:mm"

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import RemoteUU
 @testable import SnugCore
 
 /// 夹具里没留进程号，按此刻的 UURemoteServer 补上
@@ -7,11 +8,8 @@ private let serverPID: pid_t = 4242
 
 /// 推流事件取自 CaptureLogTests 的夹具 2257：远程开头先为手机屏 79 开推，紧跟着为主屏 1 再起一路
 private func records(_ name: String) throws -> [CaptureLogRecord] {
-    guard let url = Bundle.module.url(forResource: "uuremoteserver-\(name)", withExtension: "ndjson", subdirectory: "Fixtures") else {
-        throw CocoaError(.fileNoSuchFile)
-    }
     let parser = CaptureLogParser()
-    return try String(contentsOf: url, encoding: .utf8).split(separator: "\n").compactMap { parser.parse(line: String($0)) }
+    return try UUFixtures.lines(name).compactMap { parser.parse(line: $0) }
         .map { CaptureLogRecord(date: $0.date, event: $0.event, processID: serverPID) }
 }
 

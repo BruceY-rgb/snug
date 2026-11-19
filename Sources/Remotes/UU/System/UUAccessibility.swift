@@ -4,6 +4,7 @@
 // AX 调用会阻塞（UU 卡顿时每次最多等 1 秒），所以这里的函数都是同步的，只在后台队列调用，绝不在主线程。
 // 进程号由调用方在主线程查好传进来，后台只碰 AX，不碰 AppKit
 import ApplicationServices
+import RemoteUU
 import SnugCore
 import SnugSystem
 

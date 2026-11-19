@@ -1,15 +1,16 @@
 // 一拍里对 UU远程 的观测：三路信号，怎么算在场，怎么交给核心
 import Foundation
+import SnugCore
 
-public struct UUSignals: Equatable, Sendable, CustomStringConvertible {
+package struct UUSignals: Equatable, Sendable, CustomStringConvertible {
     /// UURemoteServer 的覆盖窗口在屏
-    public var overlayVisible: Bool
+    package var overlayVisible: Bool
     /// UU 主窗口的控制端表格
-    public var controllers: ControllerTable
+    package var controllers: ControllerTable
     /// UURemoteServer 是否在推流。nil = 未知（日志监听没在跑）
-    public var captureActive: Bool?
+    package var captureActive: Bool?
 
-    public init(overlayVisible: Bool, controllers: ControllerTable, captureActive: Bool?) {
+    package init(overlayVisible: Bool, controllers: ControllerTable, captureActive: Bool?) {
         self.overlayVisible = overlayVisible
         self.controllers = controllers
         self.captureActive = captureActive
@@ -17,21 +18,21 @@ public struct UUSignals: Equatable, Sendable, CustomStringConvertible {
 
     /// 任一路信号给出了在场的正面证据：覆盖窗口在屏、认出了控制端、推流在进行。
     /// 表格读不到或没认出控制端都不算缺席的证据（见 ControllerTable）
-    public var isPresent: Bool { overlayVisible || !controllers.names.isEmpty || captureActive == true }
+    package var isPresent: Bool { overlayVisible || !controllers.names.isEmpty || captureActive == true }
 
     /// 交给核心的中性观测。信号快照就是 description，日志里的写法和抽出适配层之前逐字一样
-    public func observation(streamedDisplay: DisplayID?) -> RemoteObservation {
+    package func observation(streamedDisplay: DisplayID?) -> RemoteObservation {
         RemoteObservation(present: isPresent, controllers: controllers.names, streamedDisplay: streamedDisplay, evidence: description)
     }
 
-    public var description: String {
+    package var description: String {
         let capture = captureActive.map { $0 ? "是" : "否" } ?? "未知"
         return "overlay=\(overlayVisible ? "是" : "否") 控制端=\(controllers) capture=\(capture)"
     }
 
     /// 从日志里的信号快照（description 的写法）读回覆盖窗口和推流两路，UU 自检用。
     /// 写法对不上时为 nil：description 改了措辞，这里和往返测试一起改
-    public static func logged(_ evidence: String) -> (overlay: Bool, capture: Bool?)? {
+    package static func logged(_ evidence: String) -> (overlay: Bool, capture: Bool?)? {
         guard let overlay = field("overlay=", in: evidence), let capture = field("capture=", in: evidence),
               ["是", "否"].contains(overlay), ["是", "否", "未知"].contains(capture) else { return nil }
         return (overlay == "是", capture == "未知" ? nil : capture == "是")

@@ -67,7 +67,7 @@ enum RenderSamples {
     /// 远程中，开着的屏都建好了；手机在看第一块屏
     private static func connected(_ s: AppState) {
         s.connection = .connected
-        s.remoteName = UURemote.identity.displayName
+        s.remoteName = Remotes.all.first?.identity.displayName
         s.controllers = ["iPhone 17 Pro Max"]
         for (i, screen) in s.config.screens.enumerated() {
             var desk = Desk.State()
@@ -140,7 +140,7 @@ enum RenderSamples {
             menuSample("menu-status-idle") { _ in },
             menuSample("menu-status-reconnecting") { s in
                 s.connection = .reconnecting
-                s.remoteName = UURemote.identity.displayName
+                s.remoteName = Remotes.all.first?.identity.displayName
             },
             menuSample("menu-status-trouble") { s in s.accessibilityTrusted = false },
         ]

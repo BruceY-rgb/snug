@@ -23,29 +23,36 @@ public enum LaunchMode: Equatable, Sendable {
     case previewScreens
     /// 只把界面渲染成 PNG
     case render(RenderTarget, output: URL)
-    /// 打印从 UU远程 读到的控制端与屏幕
-    case dumpUU
-    /// UU远程 兼容自检：核对 Snug 依赖 UU 的几处，回看最近 hours 小时的日志（见 UUCheck）
-    case checkUU(hours: Int)
+    /// 打印从这家远控读到的原始信号（名字是远控的日志名小写，由 App 层的登记处认）
+    case dumpRemote(String)
+    /// 这家远控的兼容自检：核对 Snug 依赖它的几处，回看最近 hours 小时的日志
+    case checkRemote(String, hours: Int)
     /// 帮手模式：把一块屏切到 target 后立即退出（Snug 的屏换档，或把加屏、撤屏时被 macOS 拨动的屏设回去）。
     /// 目标由主程序算好传来，帮手不读配置。主程序亲自切模式，Snug 的屏释放时会拖 40 秒以上才下线；交给短命的子进程切就没有这个问题
     case setMode(display: DisplayID, to: ModeTarget)
     /// 实测：按规格建几块实验屏，打印它们的模式，按 Ctrl-C 撤掉（见 ProbeScreen）
     case probeScreens([ProbeScreen])
 
-    public static let usage = """
-    用法：Snug [模式]
-      （无参数）                      正常启动
-      --preview-screens               正常启动，不等远程就建出开着的屏（开发自测用）
-      --render-<界面> <目录>           把界面渲染成 PNG（界面：\(RenderTarget.allCases.map(\.rawValue).joined(separator: " / "))）
-      --dump-uu                       打印从 UU远程 读到的表格行、控制端与屏幕
-      --check-uu [小时]               UU远程 兼容自检：核对 Snug 依赖 UU 的几处，回看最近几小时的日志（默认 \(UUCheck.defaultHours)，最多 \(UUCheck.maxHours)）
-      --probe-screens <规格> [<规格> …]  实测用：建实验屏、打印模式，按 Ctrl-C 撤掉。规格写成
-                                      modes=1180x820+1000x695[,name=名字][,serial=999000001][,cap=像素宽x像素高][,pattern=off][,main=on]
-      --set-mode <屏幕编号> <宽> <高>   把 Snug 的屏换到这一档（点，2 倍）（主程序内部用）
-      --restore-mode <屏幕编号> <模式编号> <宽> <高> <像素宽> <像素高> <刷新率> session|permanent
-                                      把一块屏设回这个模式，只对本次登录或连永久配置（主程序内部用）
-    """
+    /// 兼容自检默认回看几小时、最多回看几小时
+    public static let defaultCheckHours = 4
+    public static let maxCheckHours = 72
+
+    /// remotes：登记的远控在命令行里的名字
+    public static func usage(remotes: [String]) -> String {
+        """
+        用法：Snug [模式]
+          （无参数）                      正常启动
+          --preview-screens               正常启动，不等远程就建出开着的屏（开发自测用）
+          --render-<界面> <目录>           把界面渲染成 PNG（界面：\(RenderTarget.allCases.map(\.rawValue).joined(separator: " / "))）
+          --dump-remote <远控>             打印从这家远控读到的原始信号与屏幕（远控：\(remotes.joined(separator: " / "))）
+          --check-remote <远控> [小时]     这家远控的兼容自检：核对 Snug 依赖它的几处，回看最近几小时的日志（默认 \(defaultCheckHours)，最多 \(maxCheckHours)）
+          --probe-screens <规格> [<规格> …]  实测用：建实验屏、打印模式，按 Ctrl-C 撤掉。规格写成
+                                          modes=1180x820+1000x695[,name=名字][,serial=999000001][,cap=像素宽x像素高][,pattern=off][,main=on]
+          --set-mode <屏幕编号> <宽> <高>   把 Snug 的屏换到这一档（点，2 倍）（主程序内部用）
+          --restore-mode <屏幕编号> <模式编号> <宽> <高> <像素宽> <像素高> <刷新率> session|permanent
+                                          把一块屏设回这个模式，只对本次登录或连永久配置（主程序内部用）
+        """
+    }
 
     public static func parse(_ arguments: [String]) throws -> LaunchMode {
         var rest = arguments.filter { $0.hasPrefix("--") || !$0.hasPrefix("-") }[...]
@@ -81,13 +88,14 @@ public enum LaunchMode: Equatable, Sendable {
         switch flag {
         case "--preview-screens":
             return .previewScreens
-        case "--dump-uu":
-            return .dumpUU
-        case "--check-uu":
-            guard let raw = rest.first, !raw.hasPrefix("--") else { return .checkUU(hours: UUCheck.defaultHours) }
+        case "--dump-remote":
+            return .dumpRemote(try value())
+        case "--check-remote":
+            let remote = try value()
+            guard let raw = rest.first, !raw.hasPrefix("--") else { return .checkRemote(remote, hours: defaultCheckHours) }
             let hours = try number(Int.self)
-            guard hours <= UUCheck.maxHours else { throw LaunchModeError.invalidNumber(flag, raw) }
-            return .checkUU(hours: hours)
+            guard hours <= maxCheckHours else { throw LaunchModeError.invalidNumber(flag, raw) }
+            return .checkRemote(remote, hours: hours)
         case "--probe-screens":
             var specs: [String] = []
             while let spec = rest.first, !spec.hasPrefix("--") {

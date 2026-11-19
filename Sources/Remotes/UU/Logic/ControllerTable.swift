@@ -9,10 +9,11 @@
 //   首页、错误页的行，以及远程协助、副屏模式的行，也都不是这里要找的控制端。
 //   所以只有认出控制端才算证据，没认出不等于没人（issue #1：主窗口停在首页时，正常远程 60 秒后被误判断开）
 import Foundation
+import SnugCore
 
 /// UU 窗口里的一个界面元素：辅助功能树照原样抄下来，只分出认控制端用得上的几种
-public struct UUElement: Equatable, Sendable {
-    public enum Kind: Equatable, Sendable {
+package struct UUElement: Equatable, Sendable {
+    package enum Kind: Equatable, Sendable {
         /// 静态文字
         case text(String)
         case table
@@ -20,16 +21,16 @@ public struct UUElement: Equatable, Sendable {
         case other
     }
 
-    public var kind: Kind
-    public var children: [UUElement]
+    package var kind: Kind
+    package var children: [UUElement]
 
-    public init(_ kind: Kind, _ children: [UUElement] = []) {
+    package init(_ kind: Kind, _ children: [UUElement] = []) {
         self.kind = kind
         self.children = children
     }
 }
 
-public enum ControllerTable: Equatable, Sendable, CustomStringConvertible {
+package enum ControllerTable: Equatable, Sendable, CustomStringConvertible {
     /// 没授权、UU 没在运行、没有窗口、遍历超限、读得太慢
     case unreadable
     /// 窗口读得到，但没认出控制端行
@@ -45,7 +46,7 @@ public enum ControllerTable: Equatable, Sendable, CustomStringConvertible {
     static let durationPrefix = "连接时长"
 
     /// windows：UU 每个窗口的界面树
-    public init(windows: [UUElement]) {
+    package init(windows: [UUElement]) {
         self.init(rows: windows.flatMap(Self.localTables).flatMap(\.rows).map(\.texts))
     }
 
@@ -66,11 +67,11 @@ public enum ControllerTable: Equatable, Sendable, CustomStringConvertible {
     }
 
     /// 认出的控制端；读不到、没认出时为空
-    public var names: [String] {
+    package var names: [String] {
         if case .shown(let names) = self { names } else { [] }
     }
 
-    public var description: String {
+    package var description: String {
         switch self {
         case .unreadable: "读不到"
         case .unrecognized: "未识别"

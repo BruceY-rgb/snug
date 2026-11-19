@@ -1,12 +1,13 @@
-// --dump-uu：打印从 UU远程 读到的东西和此刻的屏幕。只读，不点 UU、不碰屏幕
+// --dump-remote uu：打印从 UU远程 读到的东西和此刻的屏幕。只读，不点 UU、不碰屏幕
 import CoreGraphics
 import Foundation
+import RemoteUU
 import SnugCore
 import SnugSystem
 
 @MainActor
-enum UUDump {
-    static func run() -> Int32 {
+package enum UUDump {
+    package static func run() -> Int32 {
         print("覆盖窗口：\(UURemoteApp.overlayVisible() ? "在屏" : "没有")")
         print("屏幕：")
         displayLines().forEach { print($0) }
@@ -35,7 +36,7 @@ enum UUDump {
         return 0
     }
 
-    /// 界面树里的文字、表格和行，一行一个；别的元素不占一层缩进（--check-uu 的取证材料也用）
+    /// 界面树里的文字、表格和行，一行一个；别的元素不占一层缩进（兼容自检的取证材料也用）
     static func treeLines(_ windows: [UUElement]) -> [String] {
         var lines: [String] = []
         func walk(_ element: UUElement, depth: Int) {

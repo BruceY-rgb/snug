@@ -8,7 +8,8 @@ let mode: LaunchMode
 do {
     mode = try LaunchMode.parse(Array(CommandLine.arguments.dropFirst()))
 } catch {
-    FileHandle.standardError.write(Data("\(error)\n\n\(LaunchMode.usage)\n".utf8))
+    let remotes = MainActor.assumeIsolated { Remotes.names }
+    FileHandle.standardError.write(Data("\(error)\n\n\(LaunchMode.usage(remotes: remotes))\n".utf8))
     exit(2)
 }
 
@@ -16,10 +17,10 @@ switch mode {
 case .render(let target, let output):
     // 只渲染 PNG：不建 AppController、不起感知器、不碰屏幕和窗口
     exit(MainActor.assumeIsolated { Renderer.run(target, output: output) } ? 0 : 1)
-case .dumpUU:
-    exit(MainActor.assumeIsolated { UUDump.run() })
-case .checkUU(let hours):
-    exit(MainActor.assumeIsolated { UUCheckRun.run(hours: hours) })
+case .dumpRemote(let name):
+    exit(MainActor.assumeIsolated { Remotes.dump(name) })
+case .checkRemote(let name, let hours):
+    exit(MainActor.assumeIsolated { Remotes.check(name, hours: hours) })
 case .probeScreens(let screens):
     // 实测用：不建 AppController、不起感知器，只管实验屏。虚拟屏要在跑着的 GUI 进程里才上线
     let app = NSApplication.shared

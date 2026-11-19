@@ -1,15 +1,7 @@
 import Foundation
 import Testing
+@testable import RemoteUU
 @testable import SnugCore
-
-/// 夹具来自 2026-11-12 本机 `log show --style ndjson --predicate 'process == "UURemoteServer" …'`，
-/// 只保留时间、类型、子系统、进程路径和消息正文，不含 IP、用户名、主目录路径
-private func fixture(_ name: String) throws -> [String] {
-    guard let url = Bundle.module.url(forResource: "uuremoteserver-\(name)", withExtension: "ndjson", subdirectory: "Fixtures") else {
-        throw CocoaError(.fileNoSuchFile)
-    }
-    return try String(contentsOf: url, encoding: .utf8).split(separator: "\n").map(String.init)
-}
 
 /// 用和日志同样格式的字符串写断言里的时刻，一眼能对上夹具
 private func ts(_ s: String) -> Date {
@@ -25,7 +17,7 @@ private func activity(_ name: String, at probes: [String]) throws -> [String: Bo
     var state = CaptureSessionState()
     var result: [String: Bool] = [:]
     var pending = probes
-    for line in try fixture(name) {
+    for line in try UUFixtures.lines(name) {
         guard let record = parser.parse(line: line) else { continue }
         while let p = pending.first, ts(p) < record.date {
             result[p] = state.isActive(at: ts(p))
@@ -174,7 +166,7 @@ struct CaptureLogTests {
     func secondStreamKeepsDisplay() throws {
         let parser = CaptureLogParser()
         var state = CaptureSessionState()
-        for line in try fixture("2257") { if let r = parser.parse(line: line) { state.apply(r) } }
+        for line in try UUFixtures.lines("2257") { if let r = parser.parse(line: line) { state.apply(r) } }
         #expect(state.streamingDisplay(at: ts("22:57:14.000")) == 79)
     }
 

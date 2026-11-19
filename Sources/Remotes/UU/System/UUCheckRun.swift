@@ -1,19 +1,20 @@
-// --check-uu [小时]：UU远程 兼容自检（scripts/snug uu-check 调）。收集事实交给 SnugCore 的 UUCheck 判定、打出报告，
+// --check-remote uu [小时]：UU远程 兼容自检（scripts/snug remote-check uu 调）。收集事实交给 UUCheck 判定、打出报告，
 // 并把原始材料写进 ~/Library/Logs/Snug-uu-check/（每次覆盖）：UU 的推流日志、上一次远程前后 UURemoteServer 的全部日志、
 // 这段时间的 Snug 日志、UU 的界面树、哪些程序链接了抓屏与编码框架。哪项不对直接看材料，不用再一步步复现。
 // 只读：不点 UU、不碰屏幕
 import AppKit
+import RemoteUU
 import SnugCore
 import SnugSystem
 
 @MainActor
-enum UUCheckRun {
+package enum UUCheckRun {
     static let evidence = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Snug-uu-check")
     /// 上一次远程的原始日志从开始前这么久取起，最多取到开始后这么久（远程开头的连入、切屏最要紧，整场太长）
     static let sessionLead: TimeInterval = 10
     static let sessionSpan: TimeInterval = 300
 
-    static func run(hours: Int) -> Int32 {
+    package static func run(hours: Int) -> Int32 {
         let now = Date()
         let since = now.addingTimeInterval(-TimeInterval(hours) * 3600)
         var files: [String: String] = [:]

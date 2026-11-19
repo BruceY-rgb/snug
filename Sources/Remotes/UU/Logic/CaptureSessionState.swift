@@ -11,10 +11,11 @@
 // 开推前描述的总是主屏，一直推到远程结束。这第二路不能盖掉第一路的屏——
 // 22:57:12.969 先为 79（手机屏）开推，13.023 又为 1 开推，画面一直在 79 上
 import Foundation
+import SnugCore
 
-public struct CaptureSessionState: Sendable {
+package struct CaptureSessionState: Sendable {
     /// 终止事件之后等这么久，没有重新开始才算真的停了（加屏、撤屏等屏幕组合变化时 UU 会停流再重开）
-    public static let restartGrace: TimeInterval = 3
+    package static let restartGrace: TimeInterval = 3
 
     private var active = false
     private var pendingEndAt: Date?
@@ -23,9 +24,9 @@ public struct CaptureSessionState: Sendable {
     /// 上次推流开始之后见过终止：没见过就是紧跟着起的第二路，不改 captured
     private var stoppedSinceStart = true
 
-    public init() {}
+    package init() {}
 
-    public mutating func apply(_ record: CaptureLogRecord) {
+    package mutating func apply(_ record: CaptureLogRecord) {
         settle(before: record.date)
         switch record.event {
         case .displayDescribed(let id):
@@ -45,14 +46,14 @@ public struct CaptureSessionState: Sendable {
         }
     }
 
-    public func isActive(at now: Date) -> Bool {
+    package func isActive(at now: Date) -> Bool {
         guard active else { return false }
         guard let end = pendingEndAt else { return true }
         return now.timeIntervalSince(end) <= Self.restartGrace
     }
 
     /// 此刻 UU 在推的屏；没在推流、或推流开始前没看到屏的描述时为 nil
-    public func streamingDisplay(at now: Date) -> DisplayID? {
+    package func streamingDisplay(at now: Date) -> DisplayID? {
         isActive(at: now) ? captured : nil
     }
 
@@ -60,7 +61,7 @@ public struct CaptureSessionState: Sendable {
     /// 再接上启动后收到的；两段重叠的部分按时间去掉。
     /// 启动前的日志只认 server（此刻的 UURemoteServer 进程）打的：进程崩溃时不留停流日志，上一个进程的「开始」
     /// 永远等不到「停止」，放进来会一直算推流中。server 为 nil（没在运行）时启动前的日志一条不认
-    public static func resumed(history: [CaptureLogRecord], live: [CaptureLogRecord], server: pid_t?) -> CaptureSessionState {
+    package static func resumed(history: [CaptureLogRecord], live: [CaptureLogRecord], server: pid_t?) -> CaptureSessionState {
         var state = CaptureSessionState()
         for r in history where server != nil && r.processID == server { state.apply(r) }
         let after = history.last?.date ?? .distantPast
