@@ -9,11 +9,11 @@
 - [发版](project-release.md) — 只走 scripts/snug；个人 Developer ID（29898YBGWD）公证；gh 绑定 zephyr4123 并写明 -R；版本号与更新日志口径；发版后不替主人装
 - [国内源与 README](project-domestic-mirror.md) — dl.zephyrxiang.com/snug/ 放安装包与 README 媒体；看下载量；README 结构、截图规格、待换的演示动图；证书 2027-01-12 到期
 - [演示录制（进行中）](project-demo-recording.md) — 三块屏原画并排，正式素材和粗剪已就绪；全在 footage/（绝不进 git），主人说交接时才交给 kineto
-- [UU远程 VIP 与横向扩展](project-uu-vip.md) — 12-01 起多屏、虚拟屏纳入 VIP：对外立场、免费版不实测、#35 RustDesk 评估
+- [UU远程 VIP 与横向扩展](project-uu-vip.md) — 12-01 起多屏、虚拟屏纳入 VIP：对外立场、免费版不实测；11-19 定专注 UU、暂不接 RustDesk 等其他远控
 - [无显示器的 Mac（issue #8，已关）](project-headless-mac.md) — 手机屏会顶掉默认屏；退出入口已发布，替身主屏方案已定、缺实机验证
 - [多屏（2.6.0 发布，2.6.2 补电脑屏还原）](project-multi-screen.md) — issue #4、#6、#7、#10、#16、#20：拍板、UU 与 macOS 的实测结论、没做完的、对外说过的；设计记录在 git 历史里
 - [UI 重组（已确认）](project-ui-redesign.md) — 设置分三页、菜单栏、电脑屏资源库、横屏两栏；令牌 design/design-tokens.json、原型 design/prototype，界面以原型为准
-- [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；验证用的步骤不进产品
+- [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；验证用的步骤不进产品；不为了做而做
 - [界面规范](feedback-ui-style.md) — 图标只用 SF Symbols；文字短词、书面、克制；每个状态讲清楚
 - [对外文案](feedback-doc-writing.md) — 书面语、简短干练、短语式不写整句；提炼不照抄；分点、图文对应；打码只糊必要的一小块
 - [回复 issue](feedback-issue-replies.md) — bug 留给报告人关、做完发版的需求就关；婉拒讲清定位、语气平和；做不到的要把实测和论证讲闭环；主人说发就不再审
