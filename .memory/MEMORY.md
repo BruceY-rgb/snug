@@ -12,6 +12,7 @@
 - [UU远程 VIP 与横向扩展](project-uu-vip.md) — 12-01 起多屏、虚拟屏纳入 VIP：对外立场、免费版不实测；11-19 定专注 UU、暂不接 RustDesk 等其他远控
 - [无显示器的 Mac（issue #8，已关）](project-headless-mac.md) — 手机屏会顶掉默认屏；退出入口已发布，替身主屏方案已定、缺实机验证
 - [多屏（2.6.0 发布，2.6.2 补电脑屏还原）](project-multi-screen.md) — issue #4、#6、#7、#10、#16、#20：拍板、UU 与 macOS 的实测结论、没做完的、对外说过的；设计记录在 git 历史里
+- [远控适配层（11-19 合入）](project-remote-adapter.md) — 对接 UU 的部分可替换、给社区留口子；设计记录 docs/remote-adapter 保留；约定、门禁、技术债
 - [UI 重组（已确认）](project-ui-redesign.md) — 设置分三页、菜单栏、电脑屏资源库、横屏两栏；令牌 design/design-tokens.json、原型 design/prototype，界面以原型为准
 - [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；验证用的步骤不进产品；不为了做而做
 - [界面规范](feedback-ui-style.md) — 图标只用 SF Symbols；文字短词、书面、克制；每个状态讲清楚
