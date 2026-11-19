@@ -71,6 +71,17 @@ struct LaunchModeTests {
         #expect(throws: LaunchModeError.self) { try LaunchMode.parse(["--preview-phone"]) }
     }
 
+    @Test("--check-uu [小时]：不写按默认，写了要在 1 到上限之间")
+    func checkUU() throws {
+        #expect(try LaunchMode.parse(["--check-uu"]) == .checkUU(hours: UUCheck.defaultHours))
+        #expect(try LaunchMode.parse(["--check-uu", "12"]) == .checkUU(hours: 12))
+        #expect(throws: LaunchModeError.invalidNumber("--check-uu", "0")) { try LaunchMode.parse(["--check-uu", "0"]) }
+        #expect(throws: LaunchModeError.invalidNumber("--check-uu", "\(UUCheck.maxHours + 1)")) {
+            try LaunchMode.parse(["--check-uu", "\(UUCheck.maxHours + 1)"])
+        }
+        #expect(throws: LaunchModeError.conflicting("--check-uu", "--dump-uu")) { try LaunchMode.parse(["--check-uu", "--dump-uu"]) }
+    }
+
     @Test("缺参数值、数字写错、两个模式一起：报错而不是悄悄按正常模式启动")
     func errors() {
         #expect(throws: LaunchModeError.missingValue("--render-settings")) { try LaunchMode.parse(["--render-settings"]) }

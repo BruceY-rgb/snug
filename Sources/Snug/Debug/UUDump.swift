@@ -8,7 +8,8 @@ import SnugSystem
 enum UUDump {
     static func run() -> Int32 {
         print("覆盖窗口：\(UURemoteApp.overlayVisible() ? "在屏" : "没有")")
-        printDisplays()
+        print("屏幕：")
+        displayLines().forEach { print($0) }
         guard AX.isTrusted else {
             print("没有辅助功能权限，读不到 UU远程 的界面")
             return 1
@@ -23,7 +24,7 @@ enum UUDump {
         }
         // 打出界面树里的文字、表格和行：没认出控制端时，看 UU 停在哪一页
         print("界面：")
-        for window in windows { printTree(window, depth: 1) }
+        treeLines(windows).forEach { print($0) }
         guard case .shown(let names) = ControllerTable(windows: windows) else {
             print("控制端：未识别（只认本机被控页里「本机被控中」那张表：远程中出现这一行，多半是 UU 停在首页、错误页、别的设备的详情页，或收起了被控页；"
                 + "上面确实有本机被控页和它的表，才是认不出 UU 的界面）")
@@ -34,23 +35,28 @@ enum UUDump {
         return 0
     }
 
-    /// 只打文字、表格和行，别的元素不占一层缩进
-    private static func printTree(_ element: UUElement, depth: Int) {
-        let label: String? = switch element.kind {
-        case .text(let text): text.isEmpty ? nil : "「\(text)」"
-        case .table: "表格"
-        case .row: "行"
-        case .other: nil
+    /// 界面树里的文字、表格和行，一行一个；别的元素不占一层缩进（--check-uu 的取证材料也用）
+    static func treeLines(_ windows: [UUElement]) -> [String] {
+        var lines: [String] = []
+        func walk(_ element: UUElement, depth: Int) {
+            let label: String? = switch element.kind {
+            case .text(let text): text.isEmpty ? nil : "「\(text)」"
+            case .table: "表格"
+            case .row: "行"
+            case .other: nil
+            }
+            if let label { lines.append(String(repeating: "  ", count: depth) + label) }
+            for child in element.children { walk(child, depth: label == nil ? depth : depth + 1) }
         }
-        if let label { print(String(repeating: "  ", count: depth) + label) }
-        for child in element.children { printTree(child, depth: label == nil ? depth : depth + 1) }
+        for window in windows { walk(window, depth: 1) }
+        return lines
     }
 
-    private static func printDisplays() {
-        print("屏幕：")
-        for id in Screens.online() ?? [] {
+    /// 此刻在线的屏，一行一块
+    static func displayLines() -> [String] {
+        (Screens.online() ?? []).map { id in
             let mine = CGDisplayVendorNumber(id) == ScreenSpec.vendorID ? "（Snug 的屏）" : ""
-            print("  #\(id) \(Screens.name(of: id))\(mine) \(DisplayMode.describe(id))")
+            return "  #\(id) \(Screens.name(of: id))\(mine) \(DisplayMode.describe(id))"
         }
     }
 }
