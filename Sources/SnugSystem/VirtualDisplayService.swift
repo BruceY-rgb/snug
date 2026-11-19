@@ -142,8 +142,10 @@ public final class VirtualDisplayService: VirtualDisplays {
         Screens.primary.map { Screens.axRect(fromAppKit: $0.visibleFrame) }
     }
 
+    /// 不含镜像组里的从属屏：它的模式跟着主控屏走，单独设会失败。内建屏镜像到外接屏时，加屏会把外接屏拨成 800x600，
+    /// 设回报「没有这个模式」，之后反把 800x600 当成原样，macOS 撤屏时自己恢复了又被拨回去（实测）。主控屏照旧记、照旧设回
     public func otherDisplays() -> [OtherDisplay] {
-        (Screens.online() ?? []).filter { displays[$0] == nil }.compactMap { id in
+        (Screens.online() ?? []).filter { displays[$0] == nil && CGDisplayMirrorsDisplay($0) == kCGNullDirectDisplay }.compactMap { id in
             DisplayMode.current(id).map { OtherDisplay(id: id, name: Screens.name(of: id), mode: $0, bounds: CGDisplayBounds(id),
                                                   asleep: CGDisplayIsAsleep(id) != 0) }
         }
