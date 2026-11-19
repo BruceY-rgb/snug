@@ -15,7 +15,7 @@ public struct ScreenSpec: Equatable, Sendable {
     /// 建好不到这么久就释放会让 WindowServer 卡死（原作者实测）
     public static let minimumLifetime: TimeInterval = 2.5
 
-    /// 在「显示器」设置和 UU远程 的屏幕列表里看到的名字（UU 列成「显示屏 N (名字)」）
+    /// 在「显示器」设置和远控的屏幕列表里看到的名字（UU 列成「显示屏 N (名字)」）
     public var name: String
     /// 竖屏 0x00F0（2.5 以前的手机屏就是它），横屏 0x00F1
     public var productID: UInt32

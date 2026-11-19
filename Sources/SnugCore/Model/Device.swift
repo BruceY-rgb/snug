@@ -39,7 +39,7 @@ extension DeviceKind {
     }
 }
 
-/// 屏的方向：添加时定，之后不改（换方向要撤屏重建，UU 也得重选屏，和换一块新屏没有区别）
+/// 屏的方向：添加时定，之后不改（换方向要撤屏重建，远控里也得重选屏，和换一块新屏没有区别）
 public enum Orientation: String, Codable, CaseIterable, Sendable {
     case portrait, landscape
 }

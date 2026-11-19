@@ -5,13 +5,14 @@
 - [iOS skill 路由](skill-routing-ios.md) — SwiftUI 视图、iOS 验证闭环用哪个 skill
 - [项目定位](project-positioning.md) — 承接的自有项目，保留原作者版权与致谢；2.0.0 已发布，本地数据格式变更要带迁移
 - [产品](project-product.md) — 目标与已拍板的形态：可选竖屏手机屏、默认同原版 UU、App 资源库、按窗口换档、按机型定比例、可选截图（入口在指示条）；设主屏可选、11-18 起常驻（开启前讲清代价、三处可取消）；否掉横竖切换；边界扩到电脑控制端
-- [手机屏实测坑](project-phone-screen.md) — UU 更新先跑 scripts/snug uu-check；UU 事件形态与选屏推流规律（新连接总从主屏开始）、真机自测与只从访达重开正式版、ColorSync、换档实测、App 资源库边界
+- [手机屏实测坑](project-phone-screen.md) — UU 更新先跑 scripts/snug remote-check uu；UU 事件形态与选屏推流规律（新连接总从主屏开始）、真机自测与只从访达重开正式版、ColorSync、换档实测、App 资源库边界
 - [发版](project-release.md) — 只走 scripts/snug；个人 Developer ID（29898YBGWD）公证；gh 绑定 zephyr4123 并写明 -R；版本号与更新日志口径；发版后不替主人装
 - [国内源与 README](project-domestic-mirror.md) — dl.zephyrxiang.com/snug/ 放安装包与 README 媒体；看下载量；README 结构、截图规格、待换的演示动图；证书 2027-01-12 到期
 - [演示录制（进行中）](project-demo-recording.md) — 三块屏原画并排，正式素材和粗剪已就绪；全在 footage/（绝不进 git），主人说交接时才交给 kineto
 - [UU远程 VIP 与横向扩展](project-uu-vip.md) — 12-01 起多屏、虚拟屏纳入 VIP：对外立场、免费版不实测；11-19 定专注 UU、暂不接 RustDesk 等其他远控
 - [无显示器的 Mac（issue #8，已关）](project-headless-mac.md) — 手机屏会顶掉默认屏；退出入口已发布，替身主屏方案已定、缺实机验证
 - [多屏（2.6.0 发布，2.6.2 补电脑屏还原）](project-multi-screen.md) — issue #4、#6、#7、#10、#16、#20：拍板、UU 与 macOS 的实测结论、没做完的、对外说过的；设计记录在 git 历史里
+- [远控适配层（11-19 合入）](project-remote-adapter.md) — 对接 UU 的部分可替换、给社区留口子；设计记录 docs/remote-adapter 保留；约定、门禁、技术债
 - [UI 重组（已确认）](project-ui-redesign.md) — 设置分三页、菜单栏、电脑屏资源库、横屏两栏；令牌 design/design-tokens.json、原型 design/prototype，界面以原型为准
 - [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；验证用的步骤不进产品；不为了做而做
 - [界面规范](feedback-ui-style.md) — 图标只用 SF Symbols；文字短词、书面、克制；每个状态讲清楚

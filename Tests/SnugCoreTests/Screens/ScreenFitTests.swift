@@ -30,7 +30,8 @@ struct ScreenFitTests {
         #expect(longest.size(width: 1080).height * 2 == ScreenFit.portraitPixels.height)
     }
 
-    @Test("比例 = 手机屏幕的高宽比扣掉上下各 91 点（UU 工具栏）；不知道逻辑宽度按 400 点估")
+    // 91 点按 UU远程 的工具栏实测（ScreenFit.clientToolbarInset）
+    @Test("比例 = 手机屏幕的高宽比扣掉上下各 91 点（远控工具栏）；不知道逻辑宽度按 400 点估")
     func ratio() {
         // 20:9 安卓 1080×2400：2.222 - 182/400 = 1.767
         let android = phone(DeviceScreen(width: 1080, height: 2400))
@@ -94,7 +95,8 @@ struct ScreenFitTests {
         }
     }
 
-    @Test("手机横屏：扣掉左右 UU 的工具栏和暗带（154 个手机点），取 2 倍门槛里最窄的一档，短边 525")
+    // 左右 82+72 点按 UU远程 的工具栏和暗带实测（ScreenFit.clientLandscapeInsets）
+    @Test("手机横屏：扣掉左右远控的工具栏和暗带（154 个手机点），取 2 倍门槛里最窄的一档，短边 525")
     func phoneLandscape() {
         let f = ScreenFit(device: DeviceChoice.standard.screen, kind: .phone, orientation: .landscape)
         // 17 Pro Max 横放 956×440 点，扣完 802×440

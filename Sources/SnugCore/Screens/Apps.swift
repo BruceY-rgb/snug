@@ -80,9 +80,6 @@ public struct SearchKeys: Equatable, Sendable {
 }
 
 public enum AppList {
-    /// 不出现在资源库里的 App：UU远程 自己（把遥控器放到 Snug 的屏上没有意义，退了它远程就断了）
-    public static let excludedBundles: Set<String> = [UURemote.bundleID]
-
     /// 不给退出的 App：访达。同 Mac，它的菜单、程序坞里都没有「退出」（实测 11-14 terminate 能退掉，桌面图标跟着没了）
     private static let unquittableBundles: Set<String> = ["com.apple.finder"]
 
@@ -93,7 +90,7 @@ public enum AppList {
     public static func ordered(_ apps: [RunningApp], frontToBack: [UInt32]) -> [RunningApp] {
         let rank = Dictionary(frontToBack.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
         func position(_ window: WindowInfo) -> Int { rank[window.key.id] ?? Int.max }
-        return stableSorted(apps.filter { !excludedBundles.contains($0.app.bundleID) }.map { app in
+        return stableSorted(apps.map { app in
             var app = app
             app.windows = stableSorted(app.windows, by: position)
             return app
@@ -119,11 +116,20 @@ public enum AppList {
         return shown.compactMap { latest[$0.key] } + fresh.filter { !known.contains($0.key) }
     }
 
-    /// 全部 App 按字典序，同一个 App 装了两份（比如「应用程序」和用户目录各一份）只留第一份
-    public static func sorted(_ apps: [InstalledApp]) -> [InstalledApp] {
+    /// 刷新后列表里的在跑 App：去掉 excluded 里的（见 sorted）；reorder 时用新读到的顺序（已按最近用过排），
+    /// 否则保持列表露着时的顺序（见 keepingOrder）
+    public static func refreshed(_ fresh: [RunningApp], shown: [RunningApp], reorder: Bool, excluding excluded: Set<String>) -> [RunningApp] {
+        let listed = fresh.filter { !excluded.contains($0.app.bundleID) }
+        return reorder ? listed : keepingOrder(of: shown, updatedWith: listed)
+    }
+
+    /// 全部 App 按字典序，同一个 App 装了两份（比如「应用程序」和用户目录各一份）只留第一份。
+    /// excluded 不出现在资源库里：各家远控自己的 App（RemoteIdentity.bundleIDs，按登记的远控给），
+    /// 把遥控器放到 Snug 的屏上没有意义，退了它远程就断了
+    public static func sorted(_ apps: [InstalledApp], excluding excluded: Set<String>) -> [InstalledApp] {
         var seen = Set<String>()
         return apps
-            .filter { !excludedBundles.contains($0.app.bundleID) && seen.insert($0.app.bundleID).inserted }
+            .filter { !excluded.contains($0.app.bundleID) && seen.insert($0.app.bundleID).inserted }
             .sorted { $0.keys.sortKey.localizedStandardCompare($1.keys.sortKey) == .orderedAscending }
     }
 

@@ -34,7 +34,7 @@ public final class ScreenSet {
         didSet { if states != oldValue { onChange?() } }
     }
     public var onChange: (() -> Void)?
-    /// 即将加屏、撤屏，或把被拨动的别的屏设回去：会话层据此暂缓断开判定（屏幕一变，UU 的信号会抖一下）
+    /// 即将加屏、撤屏，或把被拨动的别的屏设回去：会话层据此暂缓断开判定（屏幕一变，远控的信号会抖一下，UU 实测）
     public var onTopologyChange: (() -> Void)?
     /// 放在 Snug 屏上的窗口：加屏、撤屏后放回别的窗口时跳过它们（由 DeskSet 给，ScreenSet 不认 Desk）
     var placedWindows: () -> Set<WindowKey> = { [] }
@@ -194,7 +194,7 @@ public final class ScreenSet {
     /// 还没到点的重试（测试等它们做完）
     var retries: [Task<Void, Never>] { Array(pendingRetries.values) }
 
-    /// 换比例：屏在线换成新档位（屏不掉线、编号不变，UU 里选中的屏不丢）。换不成屏还是原来的档位，下次建屏按新的建
+    /// 换比例：屏在线换成新档位（屏不掉线、编号不变，远控里选中的屏不丢）。换不成屏还是原来的档位，下次建屏按新的建
     private func reshape(_ display: DisplayID, to fit: ScreenFit) async -> Bool {
         guard await displays.reshape(display, to: fit) else {
             Log.warn("屏 #\(display) 没能换成新比例（\(fit)），下次加屏时按新的建")

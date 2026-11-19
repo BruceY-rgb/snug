@@ -8,7 +8,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var mainScreen: ScreenID?
     /// 下一块新加的屏至少用哪一段序列号（只增不减：删掉的屏的号也不回收，免得系统把旧屏的记忆套到新屏上）
     public var nextSerialBlock = 0
-    /// 手机、平板屏上把 UU 发来的单指操作翻译成 iPhone 的手势
+    /// 手机、平板屏上把远控发来的单指操作翻译成 iPhone 的手势
     public var gestures = true
     /// 手机、平板屏底部小横条左边放相机键：截当前窗口到剪贴板。要另授「录屏与系统录音」权限，默认关
     public var screenshot = false

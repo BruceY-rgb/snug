@@ -34,7 +34,7 @@ usage() {
   cat <<'USAGE'
 用法：scripts/snug <命令>
 
-  check     构建全部产物，跑全部测试（门禁）
+  check     先查远控适配层的边界，再构建全部产物、跑全部测试（门禁）
   app       打 build/Snug.app 并签名：有 Developer ID 证书就用它，没有就 ad-hoc
   install   打 App，装进「应用程序」并打开（先正常退出正在跑的 Snug，窗口会先放回原处）
   dist      打可分发的安装包 dist/<版本>/Snug-<版本>.dmg：Developer ID 签名，App 和 dmg 各自公证、钉票据；
@@ -44,7 +44,7 @@ usage() {
   mirror    把 GitHub 上已经公开的版本补传到国内源：scripts/snug mirror 2.0.0
   media     把 README 用的图片、视频传到国内源，打出地址：scripts/snug media <文件…>
   stats     安装包下载量（只读）：GitHub Release 加国内源，扣除自测；国内源的日志读 SpeakMore 的缓存
-  uu-check  UU远程 兼容自检（只读）：核对 Snug 依赖 UU 的几处，回看最近几小时的日志：scripts/snug uu-check [小时]
+  remote-check  远控兼容自检（只读）：核对 Snug 依赖这家远控的几处，回看最近几小时的日志：scripts/snug remote-check uu [小时]
   help      显示这段说明
 
 发版：改好 VERSION 并提交，打带说明的同名标签推上去，再 ship（Release 的说明取自标签说明）：
@@ -400,7 +400,94 @@ release_tool() { swift run -c release --quiet snug-release "$@"; }
 
 # MARK: 命令
 
+# 远控适配层的边界（docs/remotes/README.md「防回潮」）：核心不认识任何一家远控，适配器只从登记处接进来，
+# 测试目标和目录对得上，每家远控的目标、登记、契约驱动齐全。类型引用编译器会拦，这里管编译器拦不到的
+check_remote_boundaries() {
+  local registry=Sources/Snug/App/Remotes.swift drivers=Tests/RemoteContractTests/RemoteDriver.swift
+  # 一条 import 语句的开头：前面只许有空白、属性（@testable、@preconcurrency）、访问级别；import struct 这类写法也算。
+  # 只认行首，注释里、字符串里的 import 不算
+  local import_stmt='^[[:space:]]*(@[[:alnum:]_]+(\([^)]*\))?[[:space:]]+)*((public|package|internal|private|fileprivate)[[:space:]]+)?import[[:space:]]+((typealias|struct|class|enum|protocol|let|var|func)[[:space:]]+)?'
+  # 名字检查放过的写法（awk 正则，区分大小写，先剔掉再查名字）。撞上和远控无关的子串时加在这里，写明是谁：
+  # UUID；com.todesktop 是 Cursor 的 bundle（ToDesktop 打包），和远控 ToDesk 无关
+  local allowed='UUID|uuid|com[.]todesktop[.]'
+
+  # Package.swift 交给 SwiftPM 自己解析，不按文本猜写法：每个目标一行「类型 名字 路径 依赖」
+  local manifest line kind name tpath deps
+  manifest="$(swift package dump-package)" || die "SwiftPM 读不了 Package.swift"
+  local -A path_of deps_of
+  local -a declared actual
+  for line in ${(f)"$(print -r -- "$manifest" | python3 -I -c '
+import json, sys
+for t in json.load(sys.stdin)["targets"]:
+    deps = [next(iter(d.values()))[0] for d in t["dependencies"]]
+    path = t.get("path") or ("Tests/" if t["type"] == "test" else "Sources/") + t["name"]
+    print(t["type"], t["name"], path, ",".join(deps) or "-")
+')"}; do
+    read -r kind name tpath deps <<< "$line"
+    path_of[$name]=$tpath
+    deps_of[$name]=$deps
+    [[ $kind == test ]] && declared+=("$tpath")
+  done
+  local -a core=(${path_of[SnugCore]} ${path_of[SnugSystem]} ${path_of[SnugCoreTests]})
+  local -a outside=($core ${path_of[Snug]} ${path_of[SnugRelease]})
+  (( ${#core} == 3 && ${#outside} == 5 )) || die "Package.swift 里找不到 SnugCore、SnugSystem、SnugCoreTests、Snug、SnugRelease 之一"
+
+  # grep 没命中（退出码 1）算干净；出错（2：目录不在、正则写错）不能当成干净
+  local hits
+  scan() { grep "$@" || (( $? == 1 )) || die "边界检查的 grep 出错：grep $*"; }
+
+  # 各家远控的名字取自 Sources/Remotes 下的目录名，接一家新的不用改这里
+  local -a families=(Sources/Remotes/*(/N:t))
+  local family
+  for family in $families; do
+    [[ $family =~ '^[A-Za-z]+$' ]] || die "适配器的目录名只用英文字母：Sources/Remotes/$family"
+  done
+  if (( ${#families} )); then
+    hits="$(scan -rHniE "${(j:|:)families}" $core | awk -v names="${(Lj:|:)families}" -v allowed="$allowed" \
+      '{ s = $0; sub(/^[^:]+:[0-9]+:/, "", s); if (s ~ /^[[:space:]]*\/\//) next; gsub(allowed, "", s); if (tolower(s) ~ names) print }')"
+    [[ -z "$hits" ]] || die "核心、系统层、核心测试的代码里出现了远控的名字（${(j:、:)families}，大小写都算；出处写在单独一行的注释里）：\n$hits"
+  fi
+  hits="$(scan -rHnE "${import_stmt}Remote[A-Z]" $outside | scan -v "^$registry:")"
+  [[ -z "$hits" ]] || die "只有 $registry 能 import 适配器（核心测试只用假远控）：\n$hits"
+  hits="$(scan -rHnE "$import_stmt" Sources/Remotes/*/Logic(N) /dev/null \
+    | scan -vE "^[^:]+:[0-9]+:${import_stmt#^}(Foundation|SnugCore)(\.[[:alnum:]_.]+)?[[:space:]]*(//.*)?\$")"
+  [[ -z "$hits" ]] || die "适配器的纯逻辑（Logic）只能 import Foundation 和 SnugCore：\n$hits"
+
+  # 声明的测试目标和 Tests/ 下的目录一一对应：没声明的目录 SwiftPM 不报错，里面的测试悄悄不跑
+  actual=(Tests/*(/N) Tests/Remotes/*(/N))
+  declared=(${(o)declared})
+  actual=(${(o)${actual:#Tests/Remotes}})
+  [[ "${(j: :)declared}" == "${(j: :)actual}" ]] || die "测试目标和 Tests/ 下的目录对不上：声明的 ${(j:、:)declared}；目录 ${(j:、:)actual}"
+
+  # 每家远控按 Sources/Remotes 下的目录找：三个目标、纯逻辑只依赖 SnugCore、登记、契约驱动。
+  # 登记、驱动只认注释以外的部分：注释掉的登记不算登记
+  local live_registry live_drivers
+  live_registry="$(sed -E 's#//.*##' $registry)"
+  live_drivers="$(sed -E 's#//.*##' $drivers)"
+  for family in $families; do
+    local dir=Sources/Remotes/$family
+    [[ ${path_of[Remote$family]-} == "$dir/Logic" ]] || die "缺目标 Remote$family（path: \"$dir/Logic\"）"
+    [[ ${path_of[Remote${family}System]-} == "$dir/System" ]] || die "缺目标 Remote${family}System（path: \"$dir/System\"）"
+    [[ ${path_of[Remote${family}Tests]-} == "Tests/Remotes/$family" ]] || die "缺测试目标 Remote${family}Tests（path: \"Tests/Remotes/$family\"）"
+    [[ ${deps_of[Remote$family]} == SnugCore ]] || die "Remote$family 只能依赖 SnugCore（现在：${deps_of[Remote$family]}）"
+    [[ ",${deps_of[RemoteContractTests]-}," == *",Remote$family,"* ]] || die "契约测试目标没依赖 Remote$family"
+    print -r -- "$live_registry" | grep -qE "${import_stmt}Remote${family}System[[:space:]]*(//.*)?\$" \
+      && print -r -- "$live_registry" | grep -q "${family}RemoteAdapter\.self" \
+      || die "Remote$family 没在 $registry 登记（import Remote${family}System，all 里加 ${family}RemoteAdapter.self）"
+    [[ -f Tests/RemoteContractTests/Drivers/${family}Driver.swift ]] || die "缺契约驱动 Tests/RemoteContractTests/Drivers/${family}Driver.swift"
+    print -r -- "$live_drivers" | grep -q "${family}Driver()" || die "${family}Driver 没放进契约测试的 drivers（$drivers）"
+  done
+  # 反过来：叫 Remote… 的目标都得在 Sources/Remotes、Tests/Remotes 下（契约测试除外）
+  for name in ${(k)path_of}; do
+    [[ $name == Remote* && $name != RemoteContractTests ]] || continue
+    [[ ${path_of[$name]} == Sources/Remotes/*/(Logic|System) || ${path_of[$name]} == Tests/Remotes/* ]] \
+      || die "$name 不在 Sources/Remotes、Tests/Remotes 下（${path_of[$name]}）"
+  done
+}
+
 cmd_check() {
+  step "远控适配层的边界"
+  check_remote_boundaries
   step "swift build（全部产物）"
   swift build
   step "swift test"
@@ -627,12 +714,14 @@ cmd_stats() {
   }
 }
 
-# UU远程 兼容自检（只读）：UU 更新后先用手机照常连一次（切到 Snug 的屏），再跑这个。判定在 SnugCore 的 UUCheck，
-# 原始材料写进 ~/Library/Logs/Snug-uu-check/。用调试版直接跑、不打包；辅助功能权限按终端算，没授权时只跳过读 UU 的界面
-cmd_uu_check() {
+# 远控兼容自检（只读）：远控更新后先用手机照常连一次（切到 Snug 的屏），再跑这个。各家的判定在各自的适配器里
+# （UU：RemoteUU 的 UUCheck，原始材料写进 ~/Library/Logs/Snug-uu-check/）。用调试版直接跑、不打包；
+# 辅助功能权限按终端算，没授权时只跳过读远控的界面
+cmd_remote_check() {
+  [[ -n "$1" ]] || die "要写远控的名字：scripts/snug remote-check uu [小时]"
   step "编译（debug）"
   swift build --product Snug
-  "$(swift build --show-bin-path)/Snug" --check-uu ${1:+"$1"}
+  "$(swift build --show-bin-path)/Snug" --check-remote "$1" ${2:+"$2"}
 }
 
 # MARK: 入口
@@ -647,7 +736,7 @@ case "${1:-help}" in
   mirror) cmd_mirror "${2:-}" ;;
   media) shift; cmd_media "$@" ;;
   stats) cmd_stats ;;
-  uu-check) cmd_uu_check "${2:-}" ;;
+  remote-check) cmd_remote_check "${2:-}" "${3:-}" ;;
   help|-h|--help) usage ;;
   *) usage >&2; die "不认识的命令：$1" ;;
 esac

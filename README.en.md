@@ -24,7 +24,7 @@ Built for UU Remote · Display and touch enhancements for remote Macs<br>A dedic
 > [!IMPORTANT]
 > **For UU Remote VIP members**: from December 1, 2026, UU Remote moves multi-display and virtual display features to VIP. Snug is built on virtual displays; if you happen to be a UU Remote VIP member, give it a try.
 >
-> **Our position**: Snug is an independent community project with no commercial ties to UU Remote. Whether to subscribe is a decision about UU Remote itself; there is no need to subscribe just for Snug. Support for other remote desktop apps, both open-source and established, is under evaluation.
+> **Our position**: Snug is an independent community project with no commercial ties to UU Remote. Whether to subscribe is a decision about UU Remote itself; there is no need to subscribe just for Snug. For now Snug focuses on UU Remote and has no plans to add other remote desktop apps itself; the UU Remote integration is a swappable adapter layer, so pull requests adding other apps are welcome, as are forks (see [Development](#-development)).
 
 > Continued from [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion) (UU Remote Companion by AoyamaShou, MIT License), with the original copyright notices and commit history fully preserved. Redesigned around the phone screen in 2.0; extended to tablets and computers in 2.6.
 
@@ -294,9 +294,11 @@ scripts/snug check     # build and run all tests
 scripts/snug install   # build, install, and launch
 ```
 
-- Three layers: `SnugCore` (pure logic) → `SnugSystem` (system interfaces) → `Snug` (UI)
+- Three layers: `SnugCore` (pure logic) → `SnugSystem` (system interfaces) → `Snug` (UI); the code that interfaces with UU Remote is a swappable remote adapter layer (`Sources/Remotes`)
 - Packaging, releases, launch arguments, and data locations: [Development guide](docs/development.md) (in Chinese)
 - Connection detection, window placement, and gesture translation: [How It Works](docs/how-it-works.md) (in Chinese)
+
+**Supporting other remote-control apps**: the architecture is ready. The core depends on no particular remote app; adding one means adding only its own adapter. Pull requests that add another remote app are welcome, or fork and add your own: [Adding a remote app](docs/remotes/README.md) · [Design record](docs/remote-adapter/README.md) (in Chinese)
 
 ## 🧹 Uninstall
 

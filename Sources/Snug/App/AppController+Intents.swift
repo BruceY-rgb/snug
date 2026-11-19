@@ -36,7 +36,7 @@ extension AppController: AppIntents {
         editScreen(id, "型号 → \(device.title)（\(fit)）") { $0.device = device }
     }
 
-    /// 改名下次建屏时生效：正在用的屏中途改名要撤了重建，UU 也得重选屏
+    /// 改名下次建屏时生效：正在用的屏中途改名要撤了重建，远控里也得重选屏
     func renameScreen(_ id: ScreenID, _ name: String) {
         let name = name.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }

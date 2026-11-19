@@ -24,7 +24,7 @@
 > [!IMPORTANT]
 > **致 UU远程 VIP 用户**：UU远程 自 2026 年 12 月 1 日起将多屏、虚拟屏等功能纳入 VIP。Snug 基于虚拟屏架构，若你恰为 UU远程 VIP 用户，欢迎一试。
 >
-> **立场**：Snug 为独立社区项目，与 UU远程 无商业关联。是否开通 VIP，请依自身对 UU远程 的需求决定，不必为 Snug 专门开通。另正评估支持其他远控软件，开源项目与成熟产品均在考虑之列。
+> **立场**：Snug 为独立社区项目，与 UU远程 无商业关联。是否开通 VIP，请依自身对 UU远程 的需求决定，不必为 Snug 专门开通。目前专注 UU远程，暂不自行适配其他远控软件；对接部分已抽为可替换的适配层，欢迎提 PR 接入或 fork 自行适配，详见[开发](#-开发)。
 
 > 承接自 [aoyamashou/UUyc-companion](https://github.com/aoyamashou/UUyc-companion)（UU远程伴侣，作者 AoyamaShou，MIT 许可），完整保留原作者的版权声明与提交历史。2.0 起以手机屏为核心重新设计，2.6 起扩展至平板与电脑。
 
@@ -294,9 +294,11 @@ scripts/snug check     # 构建并运行全部测试
 scripts/snug install   # 构建、安装并打开
 ```
 
-- 代码分三层：`SnugCore`（纯逻辑）→ `SnugSystem`（系统接口）→ `Snug`（界面）
+- 代码分三层：`SnugCore`（纯逻辑）→ `SnugSystem`（系统接口）→ `Snug`（界面）；对接 UU远程 的部分是可替换的远控适配层（`Sources/Remotes`）
 - 打包、发布、启动参数与数据位置：[开发文档](docs/development.md)
 - 连接判定、窗口移动与手势翻译：[工作原理](docs/how-it-works.md)
+
+**接入其他远控**：架构已调整就绪，核心不依赖任何一家远控，接一家新的只加它自己的适配器。欢迎提 PR 接入，或 fork 后自行接入：[接入新的远控](docs/remotes/README.md) · [设计记录](docs/remote-adapter/README.md)
 
 ## 🧹 卸载
 

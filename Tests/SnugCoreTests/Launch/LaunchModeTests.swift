@@ -64,22 +64,33 @@ struct LaunchModeTests {
         #expect(try LaunchMode.parse(ModeTarget.hiDPI(width: 540, height: 1170).arguments(display: 9)) == .setMode(display: 9, to: .hiDPI(width: 540, height: 1170)))
     }
 
-    @Test("--dump-uu、--preview-screens；旧的 --preview-phone 不认")
+    @Test("--dump-remote <远控>、--preview-screens；旧的 --preview-phone 不认")
     func flags() throws {
-        #expect(try LaunchMode.parse(["--dump-uu"]) == .dumpUU)
+        #expect(try LaunchMode.parse(["--dump-remote", "甲"]) == .dumpRemote("甲"))
+        #expect(throws: LaunchModeError.missingValue("--dump-remote")) { try LaunchMode.parse(["--dump-remote"]) }
         #expect(try LaunchMode.parse(["--preview-screens"]) == .previewScreens)
         #expect(throws: LaunchModeError.self) { try LaunchMode.parse(["--preview-phone"]) }
     }
 
-    @Test("--check-uu [小时]：不写按默认，写了要在 1 到上限之间")
-    func checkUU() throws {
-        #expect(try LaunchMode.parse(["--check-uu"]) == .checkUU(hours: UUCheck.defaultHours))
-        #expect(try LaunchMode.parse(["--check-uu", "12"]) == .checkUU(hours: 12))
-        #expect(throws: LaunchModeError.invalidNumber("--check-uu", "0")) { try LaunchMode.parse(["--check-uu", "0"]) }
-        #expect(throws: LaunchModeError.invalidNumber("--check-uu", "\(UUCheck.maxHours + 1)")) {
-            try LaunchMode.parse(["--check-uu", "\(UUCheck.maxHours + 1)"])
+    @Test("--check-remote <远控> [小时]：远控必写；小时不写按默认 4，写了要在 1 到 72 之间")
+    func checkRemote() throws {
+        #expect(LaunchMode.defaultCheckHours == 4)
+        #expect(LaunchMode.maxCheckHours == 72)
+        #expect(try LaunchMode.parse(["--check-remote", "甲"]) == .checkRemote("甲", hours: 4))
+        #expect(try LaunchMode.parse(["--check-remote", "甲", "12"]) == .checkRemote("甲", hours: 12))
+        #expect(try LaunchMode.parse(["--check-remote", "甲", "72"]) == .checkRemote("甲", hours: 72))
+        #expect(throws: LaunchModeError.missingValue("--check-remote")) { try LaunchMode.parse(["--check-remote"]) }
+        #expect(throws: LaunchModeError.missingValue("--check-remote")) { try LaunchMode.parse(["--check-remote", "--dump-remote", "甲"]) }
+        #expect(throws: LaunchModeError.invalidNumber("--check-remote", "0")) { try LaunchMode.parse(["--check-remote", "甲", "0"]) }
+        #expect(throws: LaunchModeError.invalidNumber("--check-remote", "73")) { try LaunchMode.parse(["--check-remote", "甲", "73"]) }
+        #expect(throws: LaunchModeError.conflicting("--check-remote", "--dump-remote")) {
+            try LaunchMode.parse(["--check-remote", "甲", "--dump-remote", "甲"])
         }
-        #expect(throws: LaunchModeError.conflicting("--check-uu", "--dump-uu")) { try LaunchMode.parse(["--check-uu", "--dump-uu"]) }
+    }
+
+    @Test("用法里列出登记的远控")
+    func usageListsRemotes() {
+        #expect(LaunchMode.usage(remotes: ["甲", "乙"]).contains("（远控：甲 / 乙）"))
     }
 
     @Test("缺参数值、数字写错、两个模式一起：报错而不是悄悄按正常模式启动")
@@ -89,8 +100,8 @@ struct LaunchModeTests {
         #expect(throws: LaunchModeError.missingValue("--set-mode")) { try LaunchMode.parse(["--set-mode", "14", "540"]) }
         #expect(throws: LaunchModeError.invalidNumber("--set-mode", "abc")) { try LaunchMode.parse(["--set-mode", "abc", "540", "950"]) }
         #expect(throws: LaunchModeError.invalidNumber("--set-mode", "0")) { try LaunchMode.parse(["--set-mode", "14", "0", "950"]) }
-        #expect(throws: LaunchModeError.conflicting("--dump-uu", "--render-about")) {
-            try LaunchMode.parse(["--dump-uu", "--render-about", "/tmp/out"])
+        #expect(throws: LaunchModeError.conflicting("--dump-remote", "--render-about")) {
+            try LaunchMode.parse(["--dump-remote", "甲", "--render-about", "/tmp/out"])
         }
     }
 

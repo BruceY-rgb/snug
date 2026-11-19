@@ -22,7 +22,9 @@ final class AppState {
     var previewing = false
     /// 此刻同时连着的控制端
     var controllers: [String] = []
-    /// UU 此刻在推的屏
+    /// 这次远程归哪家远控（界面上的名字）；不在远程时为 nil
+    var remoteName: String?
+    /// 远控此刻在推的屏
     var streamedDisplay: DisplayID?
     /// 各块屏上的状态（DeskSet 写）
     var desks = DeskSet.State()
@@ -64,10 +66,10 @@ final class AppState {
         desks.desks.first { $0.value.display == display }?.key
     }
 
-    /// UU 此刻在推的那块 Snug 屏，也就是用户此刻正在这块屏上
+    /// 远控此刻在推的那块 Snug 屏，也就是用户此刻正在这块屏上
     var watchedScreen: ScreenID? { streamedDisplay.flatMap { screenID(on: $0) } }
 
-    /// 手机（控制端）此刻在看这块屏，资源库才为它刷。不知道 UU 在推哪块屏（推流日志没读到）时当作在看；
+    /// 手机（控制端）此刻在看这块屏，资源库才为它刷。不知道远控在推哪块屏（UU 是推流日志没读到）时当作在看；
     /// 没人远程时谁都没在看（常驻的主屏）
     func watching(_ id: ScreenID) -> Bool { screensInUse && (streamedDisplay == nil || watchedScreen == id) }
 
