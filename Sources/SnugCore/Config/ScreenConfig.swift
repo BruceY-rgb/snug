@@ -1,5 +1,5 @@
 // 屏幕列表里的一项：用户自己增删，每一项是一块虚拟屏（docs/how-it-works.md「屏幕列表」）。
-// 方向添加时定、之后不改；型号随时能改（在线换比例，不撤屏）；名字显示在「显示器」设置和 UU远程 的屏幕列表里。
+// 方向添加时定、之后不改；型号随时能改（在线换比例，不撤屏）；名字显示在「显示器」设置和远控的屏幕列表里。
 // 身份（序列号）添加时分配、写进配置、永不复用：系统按身份记住一块屏的设置、排布和 ICC 文件
 import CoreGraphics
 import Foundation
@@ -22,7 +22,7 @@ public struct ScreenConfig: Codable, Equatable, Sendable, Identifiable {
         self.serials = serials
     }
 
-    /// 2.5 以前那块「Snug 手机屏」：名字、身份都不变，UU 里看到的和以前一样
+    /// 2.5 以前那块「Snug 手机屏」：名字、身份都不变，远控里看到的和以前一样
     public static func legacyPhone(_ device: DeviceChoice, enabled: Bool) -> ScreenConfig {
         ScreenConfig(id: .phone, orientation: .portrait, device: device, enabled: enabled, name: legacyPhoneName,
                      serials: [200_000_108, 200_000_118, 200_000_128])

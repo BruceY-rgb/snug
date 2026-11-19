@@ -51,7 +51,7 @@ public final class DeskSet {
     /// 确认 App 退完、窗口关上的那一刻，在撤掉「正在退出 / 正在关闭」之前：数据源据此马上去掉它，
     /// 不然要等下一轮刷新，卡片会以原样闪回一下
     public var onGone: ((Gone) -> Void)?
-    /// 即将加屏、撤屏，或把被拨动的别的屏设回去：会话层据此暂缓断开判定（屏幕一变，UU 的信号会抖一下）
+    /// 即将加屏、撤屏，或把被拨动的别的屏设回去：会话层据此暂缓断开判定（屏幕一变，远控的信号会抖一下，UU 实测）
     public var onTopologyChange: (() -> Void)? {
         get { screens.onTopologyChange }
         set { screens.onTopologyChange = newValue }
@@ -116,7 +116,7 @@ public final class DeskSet {
     }
 
     /// 在手机上退出了某块屏：放回窗口、撤掉这块屏，直到不再要它之前都不再加（这次远程结束、关了开关）。
-    /// 没接显示器的 Mac 上，Snug 的屏一出现系统就撤掉自己的默认屏，UU远程 里没有别的屏可切，靠它回到原来的画面（issue #8）。
+    /// 没接显示器的 Mac 上，Snug 的屏一出现系统就撤掉自己的默认屏，远控里没有别的屏可切，靠它回到原来的画面（issue #8）。
     /// 远程刚结束、屏还没撤完时点的不算：不然会挡掉下一次远程的屏
     public func dismissScreen(_ id: ScreenID) {
         guard let desk = desks[id], desk.wanted else { return }

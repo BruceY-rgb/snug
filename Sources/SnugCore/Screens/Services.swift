@@ -9,7 +9,7 @@ public protocol VirtualDisplays: AnyObject {
     /// 按身份和 fit 建一块屏（登记它的每一档），等它上线，尽量切到基准宽度（切不成只记日志、照样返回）。
     /// 上线不了就换备用身份，都不行就抛错
     func create(_ spec: ScreenSpec, _ fit: ScreenFit) async throws -> DisplayID
-    /// 换比例：在线换成 fit 的档位（屏不掉线、编号不变，UU 里选中的屏不丢），再切到基准宽度。换不成返回 false，屏还是原来的档位
+    /// 换比例：在线换成 fit 的档位（屏不掉线、编号不变，远控里选中的屏不丢），再切到基准宽度。换不成返回 false，屏还是原来的档位
     func reshape(_ id: DisplayID, to fit: ScreenFit) async -> Bool
     /// 这块屏登记的是哪个比例的档位（建屏或换比例时登记的）；不是这里建的返回 nil。选档只能在它的档位里选
     func fit(_ id: DisplayID) -> ScreenFit?

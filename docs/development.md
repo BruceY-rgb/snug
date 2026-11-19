@@ -6,14 +6,14 @@
 
 | 命令 | 作用 |
 | :--- | :--- |
-| `scripts/snug check` | 构建全部产物并运行全部测试（Swift Testing，以及 `scripts/` 中的 Python 单测），任一步骤失败即以非零状态退出 |
+| `scripts/snug check` | 先查远控适配层的边界（见「远控适配层」），再构建全部产物、运行全部测试（Swift Testing，以及 `scripts/` 中的 Python 单测），任一步骤失败即以非零状态退出 |
 | `scripts/snug app` | 生成 `build/Snug.app`（通用二进制）并签名 |
 | `scripts/snug install` | 生成 App、安装至「应用程序」并打开；正在运行的 Snug 会先正常退出，窗口先行归位 |
 | `scripts/snug dist` | 生成可分发的 `dist/<版本>/Snug-<版本>.dmg`：Developer ID 签名，App 与 dmg 分别公证并装订票据；再将公证后的 App 打成应用内更新用的 `Snug-<版本>.pack` |
 | `scripts/snug ship` | 发布：前置检查 → check → dist → 生成 `update.json` → 创建 GitHub Release 草稿并上传 → 公开 → 上传国内源 → 两处均从下载地址核对 |
 | `scripts/snug mirror <版本>` | 将 GitHub 上已公开的版本补传至国内源：安装包从 GitHub 下载，校验一致后上传；有应用内更新文件的版本一并补传 |
 | `scripts/snug media <文件…>` | 将 README 使用的图片与视频上传至国内源并输出地址；视频仅重新封装（不重新编码），并去除录制时间、地点等元数据 |
-| `scripts/snug uu-check [小时]` | UU远程 兼容自检（只读）：核对 Snug 依赖 UU远程 的几处，回看最近几小时（默认 4）的日志并输出报告；见下文「UU远程 兼容自检」 |
+| `scripts/snug remote-check <远控> [小时]` | 远控兼容自检（只读）：核对 Snug 依赖这家远控的几处，回看最近几小时（默认 4）的日志并输出报告；UU远程 写 `uu`，见下文「远控兼容自检」 |
 | `scripts/snug stats` | 统计安装包下载量（只读）：GitHub Release 与国内源分别计算后相加，扣除自测；口径见下文「国内源」中的「下载量」 |
 
 **环境要求**：Xcode 与 Swift 6。
@@ -72,27 +72,37 @@
 
 App 将本机已安装的 Snug 按同样方式切块，只按字节范围从最新的包中读取本机缺少的块，因此从任何旧版本都能直接升到最新版，无需逐版本的补丁。格式与打包逻辑位于 `SnugCore/Update`，发布工具 `snug-release`（`Sources/SnugRelease`）与 App 共用同一份实现：`dist` 时打包，并照清单拼装、核对签名，通过后才交出；`ship` 时生成 `update.json`。
 
-## UU远程 兼容自检
+## 远控兼容自检
 
-UU远程 更新后，先用手机照常连一次（切到 Snug 的屏），再运行 `scripts/snug uu-check`，数秒内输出报告。
-
-- **核对项**：UU远程 版本（对照上次核对的版本）；后台进程 `UURemoteServer`；抓屏与编码框架（ScreenCaptureKit、VideoToolbox）是否仍被链接；推流日志能否认出推流的开始、停止与所推的屏；Snug 连入时推流信号是否亮起；能否认出控制端
-- **判定**：❌ 问题 · ⚠️ 需留意 · ✅ 正常 · ℹ️ 待下次核对；有问题时以非零状态退出。判定位于 `SnugCore/Diagnostics/UUCheck`，推流日志按正式运行的解析与状态回放，Snug 日志的摘要位于 `SnugLogDigest`。只核对此刻的 `UURemoteServer` 进程：UU远程 更新即换进程，更新前的远程不计入
-- **取证材料**：`~/Library/Logs/Snug-uu-check/`，每次覆盖：报告、UU 推流日志、上一次远程前后 `UURemoteServer` 的全部日志、该时段的 Snug 日志、UU 界面树、链接情况与当前屏幕
-- **核对完成**：报告无问题且手机实测无误后，将 `UUCheck.verifiedVersion` 改为新版本
-- **范围**：只读日志与界面，不操作 UU远程；触控、新连接先推主屏需手机实测，暂未纳入
+远控更新后，先用手机照常连一次（切到 Snug 的屏），再运行 `scripts/snug remote-check <远控>`，数秒内输出报告。判定：❌ 问题 · ⚠️ 需留意 · ✅ 正常 · ℹ️ 待下次核对；有问题时以非零状态退出。各家核对什么、取证材料在哪，见各自的适配说明（[UU远程](remotes/uu.md#兼容自检)）。
 
 ## 代码结构
 
-代码分为三层，依赖单向向下：
+代码分为三层，加上可替换的远控适配器，依赖单向向下：
 
 | 目标 | 内容 |
 | :--- | :--- |
-| `SnugCore` | 纯逻辑：连接判定与会话、屏幕调度（见下）、屏幕适配 `ScreenFit`、机型库 `DeviceCatalog`、手势翻译 `TouchTranslator`、截图 `Screenshots`、还原记录、配置、日志、启动参数、更新包格式。系统能力抽象为协议，测试中使用假实现 |
+| `SnugCore` | 纯逻辑：远控适配层的端口与连接判定、会话（`Remote/`）、屏幕调度（见下）、屏幕适配 `ScreenFit`、机型库 `DeviceCatalog`、手势翻译 `TouchTranslator`、截图 `Screenshots`、还原记录、配置、日志、启动参数、更新包格式。系统能力抽象为协议，测试中使用假实现 |
 | `SnugSystem` | 系统层：`CGVirtualDisplay` 建屏与撤屏、辅助进程切换分辨率档位、设主屏与还原排列 `DisplayArrangementService`、辅助功能接口移动窗口、按进程发送字号快捷键、手势事件监听 `TouchTap`、ScreenCaptureKit 截图 |
-| `Snug` | 应用层：UU远程 感知、AppController、应用内更新 `Updater`、Snug 屏上的 App 资源库（`Screens/`）、指示条与截图裁剪、设置（屏幕、触控、通用三页）、添加屏幕与屏幕详情、关于、电脑屏的 App 资源库窗口、欢迎页、菜单栏 |
+| `RemoteUU`、`RemoteUUSystem` | UU远程 的适配器：纯逻辑一个目标、调系统一个目标（见「远控适配层」） |
+| `Snug` | 应用层：登记远控 `Remotes`、AppController、应用内更新 `Updater`、Snug 屏上的 App 资源库（`Screens/`）、指示条与截图裁剪、设置（屏幕、触控、通用三页）、添加屏幕与屏幕详情、关于、电脑屏的 App 资源库窗口、欢迎页、菜单栏 |
 
 发布工具 `SnugRelease` 只依赖 `SnugCore`，由 `scripts/snug` 调用。
+
+测试目标与代码目标对应：`SnugCoreTests` 只用假远控；`RemoteUUTests`（`Tests/Remotes/UU`，含 UU 的推流日志夹具）；`RemoteContractTests` 是每家远控都要过的契约测试。
+
+### 远控适配层
+
+核心不认识任何一家远控。每家远控一个适配器，实现 `SnugCore/Remote/RemoteAdapter` 的端口：身份（日志名、界面名、自家 App、注入事件的进程），每拍交一份中性的观测（在不在场、控制端、推流屏、信号快照）。连接判定、会话、归属、建屏、手势翻译都在核心，各家共用。
+
+```
+SnugSystem      → SnugCore
+RemoteUU        → SnugCore                         纯逻辑：信号怎么认、怎么算在场
+RemoteUUSystem  → RemoteUU, SnugSystem, SnugCore   调系统：实现 RemoteAdapter、诊断命令
+Snug            → 以上全部；只有 Snug/App/Remotes.swift 认识适配器
+```
+
+`Snug/App/Remotes.swift` 是唯一登记处：`AppController` 的适配器列表、资源库的排除名单、手势接管的进程、诊断命令都从这里取。`scripts/snug check` 先查边界：核心与系统层的代码行不出现 UU，只有登记处 import 适配器，核心测试不碰适配器的类型，测试目标与 `Tests/` 目录一一对应，登记的每家都有三个目标和契约驱动。接一家新的远控见 [接入新的远控](remotes/README.md)。
 
 `SnugCore` 的目录依赖单向：`Model`（屏的身份 `ScreenID`、设备的类别和数值等纯值类型）← `Config`、`Persistence` ← `Screens`。配置怎么翻成屏的身份和比例只在 `ScreenPlan` 写一处。
 
@@ -105,7 +115,7 @@ UU远程 更新后，先用手机照常连一次（切到 Snug 的屏），再�
 | `Desk` | 一块屏上的事：放窗口（手机、平板铺满换档，电脑只挪过来居中）、换档、字号、归位、还原记录（触屏 `placed/<屏 id>.json`，电脑屏挪过来的窗口一个一份），正在做什么按号排（`Desk.Ticket`） |
 | `DeskSet` | 管所有 `Desk`：在同一条 `SerialLane` 上排队，处理跨屏的事（窗口从一块屏转到另一块、退出 App 时各屏归位、撤屏前清场、在手机上退出某块屏）；留下的账交给 `LeftBehindLedger`，盯退出和关窗交给 `RequestWatcher` |
 
-`AppController` 每次感知到变化就调 `ScreenPlan.wishes` 交给 `DeskSet.setWishes`，界面只读 `AppState.desks`（每块屏的状态）。
+`AppController` 每拍把各家远控的观测交给会话层（`RemoteSession`），再按会话状态调 `ScreenPlan.wishes` 交给 `DeskSet.setWishes`（结论没变就什么都不做），界面只读 `AppState.desks`（每块屏的状态）。
 
 设计令牌：`design/design-tokens.json` 是界面数值的唯一来源。`Sources/Snug/UI/DesignTokens.swift`（`MacTokens`、`TouchTokens`、`MotionTokens`）由测试生成，不手改；`DesignTokensTests` 校验两边一致。改了令牌后重新生成：
 
@@ -123,8 +133,8 @@ SNUG_WRITE_TOKENS=1 swift test --filter DesignTokensTests
 | :--- | :--- |
 | `--render-<界面> <目录>` | 将界面渲染为 PNG：`settings` / `welcome` / `about` / `legacy` / `menu` / `screens` / `library` / `update`（不启动监控，不改动屏幕）。`screens` 是 Snug 屏上的面板，覆盖手机竖横、平板竖横；`library` 是电脑屏的 App 资源库窗口 |
 | `--preview-screens` | 正常启动，但不等待连接即创建屏幕列表中开着的屏，无需控制端即可查看屏上的列表（**会真实创建屏幕**；设了主屏的同样会设） |
-| `--dump-uu` | 打印从 UU远程 读取到的界面（文字、表格与行）、认出的控制端与当前屏幕 |
-| `--check-uu [小时]` | UU远程 兼容自检（`scripts/snug uu-check` 调用）：输出报告，原始材料写入 `~/Library/Logs/Snug-uu-check/`；有问题时以非零状态退出 |
+| `--dump-remote <远控>` | 打印从这家远控读取到的原始信号与当前屏幕；UU远程（`uu`）是界面里的文字、表格与行、认出的控制端 |
+| `--check-remote <远控> [小时]` | 远控兼容自检（`scripts/snug remote-check` 调用）：输出报告，有问题时以非零状态退出；回看默认 4 小时，最多 72 |
 | `--probe-screens <规格…>` | 实测用（多屏的 V1～V12，结论见记忆 project-multi-screen）：每份规格建一块实验屏，打印各档模式与 2 倍是否可用，按 Ctrl-C 撤屏并还原排布。规格是逗号分隔的 `键=值`：`modes=宽x高+…`（必填）、`name`、`serial`（默认用 999000001 起的实验身份）、`cap=像素宽x像素高`、`pattern=on\|off`（校准图）、`main=on`（设为主屏，最多一块）。**会真实创建屏幕**，测试时随测随撤，免得指针跑到看不见的屏上 |
 | `--set-mode <屏幕编号> <宽> <高>` | 辅助进程模式：将一块 Snug 的屏切换至该档的 2 倍模式后立即退出（供主程序内部调用；高由主程序按型号的比例算好传入） |
 | `--restore-mode <屏幕编号> <模式编号> <宽> <高> <像素宽> <像素高> <刷新率> session\|permanent` | 辅助进程模式：将一块屏幕设回该模式后立即退出，只对当前登录生效或连同永久配置（供主程序内部调用：创建、移除 Snug 的屏时被系统改变模式的屏幕） |
