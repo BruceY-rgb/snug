@@ -1,6 +1,7 @@
 // 屏幕适配：屏的比例跟着型号、方向和类别走，宽度跟着屏上的窗口走（docs/how-it-works.md「屏幕适配」）。
-// 比例：把型号的屏幕按这块屏的方向摆好，扣掉 UU 在这个方向上压住画面的部分：
-// - 手机竖屏：UU 把画面等比缩放、居中铺在手机上，上下压掉 uuInset（17 Pro Max 上是 540×950，真机调出来的）
+// 比例：把型号的屏幕按这块屏的方向摆好，扣掉远控在这个方向上压住画面的部分。让位都按 UU 实测标定：
+// 建屏早于知道是哪家远控来连（常驻的主屏甚至不等远程），没法按家给，接别家时实测再调：
+// - 手机竖屏：UU 把画面等比缩放、居中铺在手机上，上下压掉 clientToolbarInset（17 Pro Max 上是 540×950，真机调出来的）
 // - 手机横屏：UU 的工具栏在右边压一条，左边（灵动岛那侧）压一条暗带，上下不压（V6，11-17 主人定扣左右）
 // - 平板：UU 铺满、不压，横竖都不扣（V6）
 // - 电脑：UU 全屏时等比缩小、四周留黑边，不挡东西；有刘海的 MacBook 扣掉顶上那一条，画面正好一像素对一像素（V6）
@@ -32,9 +33,9 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
     public static let landscapePixels = CGSize(width: 6144, height: 3840)
     /// 手机竖屏画面上下各让出的高度（点）。UU 底部工具栏 17 Pro Max 实测约 268 像素（89 点）；取 91 让 17 Pro Max 正好是
     /// 真机上调好的 540×950（取 89 是 540×955），多出的 2 点当余量
-    static let uuInset: Double = 91
+    static let clientToolbarInset: Double = 91
     /// 手机横屏左右让出的宽度（手机的点）：右边 UU 的工具栏约 82，左边（灵动岛那侧）的暗带约 72（V6 第一轮实测粗估，待截图量准）
-    static let uuLandscapeInsets: Double = 82 + 72
+    static let clientLandscapeInsets: Double = 82 + 72
     /// 不知道逻辑分辨率时（安卓、自己填的）按这个估短边：安卓手机默认显示大小下常见 360–412dp，平板 800dp 上下
     static let assumedPhonePoints: Double = 400
     static let assumedTabletPoints: Double = 800
@@ -64,10 +65,10 @@ public struct ScreenFit: Equatable, Sendable, CustomStringConvertible {
         switch (kind, orientation) {
         case (.phone, .portrait):
             let points = device.points.map(Double.init) ?? Self.assumedPhonePoints
-            self.init(ratio: long / short - 2 * Self.uuInset / points)
+            self.init(ratio: long / short - 2 * Self.clientToolbarInset / points)
         case (.phone, .landscape):
             let points = device.points.map(Double.init) ?? Self.assumedPhonePoints
-            self.init(ratio: points / (long * points / short - Self.uuLandscapeInsets), orientation: .landscape, width: nil)
+            self.init(ratio: points / (long * points / short - Self.clientLandscapeInsets), orientation: .landscape, width: nil)
         case (.tablet, _):
             let points = device.points.map(Double.init) ?? Self.assumedTabletPoints
             let across = orientation == .portrait ? points : long * points / short

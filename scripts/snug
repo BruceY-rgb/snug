@@ -400,7 +400,46 @@ release_tool() { swift run -c release --quiet snug-release "$@"; }
 
 # MARK: 命令
 
+# 远控适配层的边界（docs/remotes/README.md「防回潮」）：核心不认识任何一家远控，适配器只从登记处接进来，
+# 测试目标和目录对得上，登记的每家都有自己的测试目标和契约驱动。类型引用编译器会拦，这里管编译器拦不到的
+check_remote_boundaries() {
+  local bad comment='^[^:]+:[0-9]+:[[:space:]]*//'
+  bad="$(grep -rnE 'UU|\buu[A-Z]' Sources/SnugCore Sources/SnugSystem | grep -vE "$comment" | grep -v 'UUID' || true)"
+  [[ -z "$bad" ]] || die "核心、系统层的代码里出现了 UU（只许在注释里写明出处）：\n$bad"
+  bad="$(grep -rlE '^import Remote' Sources/SnugCore Sources/SnugSystem Sources/Snug Sources/SnugRelease | grep -vx 'Sources/Snug/App/Remotes.swift' || true)"
+  [[ -z "$bad" ]] || die "只有 Sources/Snug/App/Remotes.swift 能 import 适配器：\n$bad"
+  bad="$(grep -rnE '\bUU([A-HJ-Z]|I[^D])|ControllerTable|CaptureLog|CaptureSession|^import Remote' Tests/SnugCoreTests | grep -vE "$comment" || true)"
+  [[ -z "$bad" ]] || die "核心测试里出现了适配器的类型（核心测试只用假远控）：\n$bad"
+
+  # 声明的测试目标和 Tests/ 下的目录一一对应：没声明的目录 SwiftPM 不报错，里面的测试悄悄不跑
+  local -a declared actual
+  local line
+  for line in ${(f)"$(grep -E '\.testTarget\(' Package.swift)"}; do
+    if [[ $line =~ 'path: "([^"]+)"' ]]; then declared+=("$match[1]")
+    elif [[ $line =~ 'name: "([^"]+)"' ]]; then declared+=("Tests/$match[1]"); fi
+  done
+  actual=(Tests/*(/N) Tests/Remotes/*(/N))
+  declared=(${(o)declared})
+  actual=(${(o)${actual:#Tests/Remotes}})
+  [[ "${(j: :)declared}" == "${(j: :)actual}" ]] || die "测试目标和 Tests/ 下的目录对不上：声明的 ${(j:、:)declared}；目录 ${(j:、:)actual}"
+
+  # 每家远控：纯逻辑、系统部分、测试三个目标齐全，在登记处接进来，契约测试有它的驱动
+  local remote family contract
+  contract="$(grep -E 'testTarget\(name: "RemoteContractTests"' Package.swift)"
+  for remote in ${(f)"$(grep -oE '\.target\(name: "Remote[A-Za-z]+"' Package.swift | grep -oE 'Remote[A-Za-z]+' | grep -v 'System$' || true)"}; do
+    family=${remote#Remote}
+    grep -q "target(name: \"${remote}System\"" Package.swift || die "$remote 缺系统部分的目标 ${remote}System"
+    grep -q "testTarget(name: \"${remote}Tests\"" Package.swift || die "$remote 缺测试目标 ${remote}Tests"
+    grep -qx "import ${remote}System" Sources/Snug/App/Remotes.swift || die "$remote 没在 Sources/Snug/App/Remotes.swift 登记"
+    [[ "$contract" == *"\"$remote\""* ]] || die "契约测试目标没依赖 $remote"
+    [[ -f "Tests/RemoteContractTests/Drivers/${family}Driver.swift" ]] || die "$remote 缺契约驱动 Tests/RemoteContractTests/Drivers/${family}Driver.swift"
+    grep -q "${family}Driver()" Tests/RemoteContractTests/RemoteDriver.swift || die "${family}Driver 没放进契约测试的 drivers"
+  done
+}
+
 cmd_check() {
+  step "远控适配层的边界"
+  check_remote_boundaries
   step "swift build（全部产物）"
   swift build
   step "swift test"
