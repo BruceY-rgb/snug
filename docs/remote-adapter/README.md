@@ -8,12 +8,12 @@
 
 ## 1. 结论
 
-- **可以切干净。** 直接引用 UU 的代码集中在：核心 9 个文件、系统层 2 个、App 层 7 个，加上测试、脚本、文档。UU 专属代码约 1280 行：纯逻辑约 630 行，系统调用约 650 行。
+- **可以切干净。** 抽出前（ffd32ef）直接引用 UU 的代码集中在：核心 9 个文件、系统层 2 个、App 层 7 个，加上测试、脚本、文档。UU 专属代码约 1280 行：纯逻辑约 630 行，系统调用约 650 行。
 - **切法：**
   - 核心只留中性端口。
   - UU 做成独立适配器：纯逻辑、系统调用各一个目标，外加自己的测试目标。
   - App 只有一个登记适配器的地方。
-  - 核心不认识任何适配器，由编译器保证；字符串里的残留，由 `scripts/snug check` 门禁保证。
+  - 核心不认识任何适配器，由编译器保证；字符串里的残留，由 `scripts/snug check` 门禁保证（落地后按 `Sources/Remotes` 下的目录名查每一家，见 12.1）。
 - **接口很小：** 身份，加上 `start`、`stop`、`sample` 三个方法。手势形态、模式恢复、主屏策略、时序常量都不进接口：要么两家情况相同，要么核心已有通用机制兜住。
 - **只有 UU 时行为不变，日志逐字不变**，验收时拿真机日志逐行对照。
 - 11 项决定已拍板（第 9 节），全部按推荐执行。
@@ -26,7 +26,9 @@
 4. **防回潮。** 「核心无残留」要能用命令查（第 8 节），不靠记性。
 5. **不扩大范围。** 偏胖的 Desk、DeskSet、ScreenSet 这次只改注释；系统层的测试缺口记为技术债（7.5 节）。
 
-## 3. 现状：UU 触点全景
+## 3. 抽出前的 UU 触点全景
+
+> 本节的路径、行号都是抽出前 ffd32ef 的；现在的位置见 [UU远程 适配](../remotes/uu.md)。
 
 ### 3.1 整体搬进 UU 适配器
 
@@ -52,7 +54,7 @@
 | `Package.swift:32` | `SnugCoreTests` 声明了 Fixtures 资源，而里面只有 UU 的夹具 | 资源声明随夹具挪到 UU 测试目标 |
 | `AppController`、`main.swift` | 直接创建 UU 感知器、直接调用 UU 诊断 | 改由唯一登记处 `Snug/App/Remotes.swift` 提供 |
 
-### 3.3 隐性耦合：留在核心，改成中性命名并注明「UU 实测」
+### 3.3 隐性耦合：留在共用代码里（核心、系统层、App 层），改成中性命名并注明「UU 实测」
 
 | 位置 | 为什么不进接口 |
 |---|---|
@@ -105,12 +107,12 @@ Sources/
     App/Remotes.swift          ← 新：唯一登记适配器的地方，加诊断分派
     （Sensing/ 删除；Debug/ 只剩 Renderer、RenderSamples、ScreenProbe）
 Tests/
-  SnugCoreTests/               ← 不再带资源；Support/RemoteFakes.swift 放中性假观测、假适配器
+  SnugCoreTests/               ← 不再带资源；Support/RemoteFakes.swift 放假身份、假观测
   Remotes/UU/                  → 目标 RemoteUUTests：Fixtures/（4 份 ndjson）、Support/UUFixtures.swift
   RemoteContractTests/         ← 决定 4
 ```
 
-以后接 RustDesk：在 `Sources/Remotes/` 下加 `RustDesk/{Logic,System}`，在 `Tests/Remotes/` 下加 `RustDesk`，`Package.swift` 加 3 个目标，`Remotes.swift` 加 1 行。核心不用动。
+以后接 RustDesk：加目录和三个目标、在 `Remotes.swift` 登记、写契约驱动，核心不用动。完整步骤以 [接入新的远控](../remotes/README.md#步骤) 为准。
 
 ### 4.2 依赖（箭头指向被依赖方）
 
@@ -122,6 +124,7 @@ Snug（App）      → SnugCore, SnugSystem, RemoteUUSystem
 SnugRelease     → SnugCore
 SnugCoreTests   → SnugCore
 RemoteUUTests   → RemoteUU, SnugCore（带 Fixtures）
+RemoteContractTests → SnugCore, 每家的纯逻辑目标（RemoteUU）
 ```
 
 无环。SnugCore、SnugSystem 不依赖任何 `Remote*` 目标，核心里一旦引用 UU 符号就编译不过。
@@ -220,7 +223,7 @@ public struct RemoteObservation: Equatable, Sendable {
 - **`RemoteUUTests`：**
   - 子目录：`Capture/`、`Controllers/`、`Process/`、`Signals/`、`Diagnostics/`、`Fixtures/`、`Support/`。
   - 两份重复的夹具读取函数合成一份 `UUFixtures.swift`。
-  - `SnugLogDigestTests` 里有个私有 `at(String)`，和核心的 `at(Double)` 跨目标同名，改名为 `stamp`。
+  - ~~`SnugLogDigestTests` 里有个私有 `at(String)`，和核心的 `at(Double)` 跨目标同名，改名为 `stamp`。~~ 按第 11 节，`SnugLogDigest` 留在核心，测试也留在 `SnugCoreTests`，不用改名。
 - **以后每家一个同构的测试目标。**
 
 ### 7.3 新增测试（先写测试、亲眼看它失败）
@@ -236,7 +239,7 @@ public struct RemoteObservation: Equatable, Sendable {
 
 ### 7.4 适配器契约测试（决定 4）
 
-一个 `RemoteContractTests` 目标，每家写一个驱动，提供空闲、连入、换控制端、读不到、注入事件、本机事件这几种原始输入。参数化跑同一组断言：
+一个 `RemoteContractTests` 目标，每家写一个驱动，提供空闲、连入、换控制端、读不到、注入事件、本机事件这几种原始输入。参数化跑同一组断言（落地后的驱动接口与断言见 12.1）：
 
 - 空闲和读不到都不算在场。
 - 标准时序产出完全相同的会话转换序列：began → controllersChanged → interrupted → resumed → interrupted → ended。
@@ -257,6 +260,8 @@ public struct RemoteObservation: Equatable, Sendable {
 要测得先抽成纯值类型，属于另一件事，不在这次范围里。
 
 ## 8. 防回潮：`scripts/snug check` 加门禁
+
+> 落地后的门禁比本节更严，以 12.1 和 [防回潮](../remotes/README.md#防回潮) 为准。
 
 1. `Sources/SnugCore`、`Sources/SnugSystem` 的字符串字面量里不许出现 UU 身份（如 `com.netease.uuremote`、`UURemoteServer`、「检测到 UU」）。注释里「UU 实测」这类出处说明允许。
 2. `import RemoteUU*` 只允许出现在 `Snug/main.swift` 和 `Snug/App/Remotes.swift`。
@@ -321,18 +326,20 @@ public struct RemoteObservation: Equatable, Sendable {
 
 | 项 | 方案 | 落地 | 为什么 |
 | :--- | :--- | :--- | :--- |
-| 身份从哪来 | 适配器实例上的 `identity` | `RemoteAdapter` 要求静态的 `identity` 和 `init()`，实例的 `identity` 由扩展取 `Self.identity`；登记处 `Entry` 只存适配器类型 | 审查发现登记处和实例各有一份身份，可能对不上；现在只有一份，`Remotes.swift` 也不必再 import 纯逻辑目标 |
+| 身份从哪来 | 适配器实例上的 `identity` | `RemoteAdapter` 要求静态的 `identity` 和 `init()`，实例的 `identity` 由扩展取 `Self.identity`；身份定义在纯逻辑目标里（`UURemote.identity`），适配器和契约驱动都引用它；登记处 `Entry` 存适配器类型和两个诊断入口，不另存身份 | 审查发现登记处和实例各有一份身份，可能对不上；现在只有一份，`Remotes.swift` 也不必再 import 纯逻辑目标 |
 | 资源库排除 | 排除名单改成参数，过滤收到 `AppCatalog` | 排除放进 `AppList.sorted(_:excluding:)` 和新增的 `AppList.refreshed`，`AppCatalog` 每轮刷新都经它们出列表；在跑的 App 读完窗口后再滤，和原来一致 | 只在 `AppCatalog` 里滤的话，漏调过滤测试照样全过（App 层没有测试） |
 | 日志摘要 | 解析器留核心，加往返测试 | 另加按远控归属：会话行归到前面最近一行「检测到 <远控> 连入」的那家，找不到的照旧算进来 | 会话行不带远控名，接第二家后 UU 自检会把别家的远程算成 UU 的 |
 | 观测怎么交给会话 | `sample` 交 `RemoteObservation` | 另有 `RemoteReading`（哪家加观测）；`RemoteSession.tracked` 是这一拍跟的那份 | 归属规则要知道观测来自哪家 |
 | 注入事件匹配 | `matches(executableName:)` | `matches(executablePath:)`，按路径的最后一段比 | 系统层读到的是来源进程的完整路径 |
-| 门禁 | 5 条 grep | `Package.swift` 交给 `swift package dump-package` 解析；按 `Sources/Remotes` 下的目录找每家；大小写都拦；`@testable`、`internal import` 等写法都认；纯逻辑目标只能 import Foundation、SnugCore，只依赖 SnugCore；登记以 `<家>RemoteAdapter.self` 为准 | 审查发现小写字面量、多行写法、只 import 不登记都能绕过 |
+| 门禁 | 5 条 grep | 名字检查从「字符串字面量里的 UU」扩大到核心、系统层、核心测试的所有代码行，名字取 `Sources/Remotes` 下的每个目录，大小写都拦，只放过单独一行的注释；import 只放行 `Snug/App/Remotes.swift`（`main.swift` 经 `Remotes.dump`、`check` 分派），`@testable`、`internal import` 等写法都认；`Package.swift` 交给 `swift package dump-package` 解析，按目录核对每家的三个目标、登记（`<家>RemoteAdapter.self`）、契约依赖与驱动；纯逻辑目标只能 import Foundation、SnugCore，只依赖 SnugCore | 审查发现小写字面量、多行写法、只 import 不登记都能绕过；合并前的核查又发现名字检查只认 UU，第二家的名字漏进核心拦不住 |
+| 契约测试 | 驱动提供六种原始输入；标准时序产出相同的转换序列 | `RemoteDriver`（`Tests/RemoteContractTests/RemoteDriver.swift`）交 `idle()`、`unreadable()`、`connected(controllers:)`、`streaming(_:)` 四种情形，以及身份、能否报控制端与推流屏、注入进程路径、自家 bundle；注入事件拿注入进程路径和几条固定路径比；认不出控制端的远控跳过 `controllersChanged`；另断言每次观测的信号快照不为空，日志名不为空、不含空格、不重名 | 注入事件、本机事件在系统层生成，契约测试只能比路径；各家能报的信号不同，序列按能力分支 |
 | UUCheck 的连接检测 | 认不出连入时报需留意 | 同上，另外信号快照读不出也报需留意；推流信号全部未知时这一项照旧不出 | 只修静默失效，其余输出和抽出前一致 |
 
 ### 12.2 验收
 
-- `scripts/snug check`：门禁全过，测试 445 → 471 例全绿（`SnugCoreTests` 415、`RemoteUUTests` 49、`RemoteContractTests` 7）
-- 门禁：11 个违规样本各自拦下，目标写成多行照常通过；契约测试改坏 UU 驱动后当场变红
+- `scripts/snug check`：门禁全过，测试 445 → 472 例全绿（`SnugCoreTests` 415、`RemoteUUTests` 50、`RemoteContractTests` 7）
+- 门禁：11 个违规样本各自拦下，目标写成多行照常通过；名字检查改为按目录后，另 10 个样本结果符合预期（含同一行 UUID 加 UU、行尾注释、第二家 Demo 的 bundle 与进程名）；契约测试改坏 UU 驱动后当场变红
+- 照指南接入：一个只看 [接入新的远控](../remotes/README.md) 的 agent 在隔离工作区接入假远控 Demo，`scripts/snug check` 一次通过，指南里写漏的地方已补
 - 与抽出前对比：81 张界面渲染逐字节一致；`--dump-remote uu`、`--check-remote uu` 与旧 `--dump-uu`、`--check-uu` 输出逐字一致
 - 真机（UU远程 4.48.1，iPhone）：连入、会话、建屏、手势开启、放窗口、断开、重连等待、结束、撤屏 14 条日志里 13 条与之前正式版的写法逐字一致，剩下 1 条是没改动、之前没触发过的指针收回（#29）；资源库里没有 UU远程；点按、滚动、长按右键正常；`remote-check uu` 7 项全部 ✅
 

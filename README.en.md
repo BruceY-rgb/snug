@@ -294,7 +294,7 @@ scripts/snug check     # build and run all tests
 scripts/snug install   # build, install, and launch
 ```
 
-- Three layers: `SnugCore` (pure logic) → `SnugSystem` (system interfaces) → `Snug` (UI); everything tied to UU Remote lives in a swappable remote adapter layer (`Sources/Remotes`)
+- Three layers: `SnugCore` (pure logic) → `SnugSystem` (system interfaces) → `Snug` (UI); the code that interfaces with UU Remote is a swappable remote adapter layer (`Sources/Remotes`)
 - Packaging, releases, launch arguments, and data locations: [Development guide](docs/development.md) (in Chinese)
 - Connection detection, window placement, and gesture translation: [How It Works](docs/how-it-works.md) (in Chinese)
 
