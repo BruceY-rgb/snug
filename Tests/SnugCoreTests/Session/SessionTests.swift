@@ -55,89 +55,85 @@ struct SessionEpisodeTests {
 
 @Suite("远程会话 RemoteSession")
 struct RemoteSessionTests {
-    private let present = UUSignals(overlayVisible: false, controllers: .shown(["iPhone"]), captureActive: nil)
-    private let absent = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: nil)
+    private func update(_ s: inout RemoteSession, _ o: RemoteObservation, _ seconds: Double) -> [SessionTransition] {
+        s.update(reading(o), now: at(seconds))
+    }
 
     @Test("连入 → began；断开 → interrupted；窗口内重连 → resumed；窗口过后 → ended")
     func transitions() {
         var s = RemoteSession()
-        #expect(s.update(present, now: at(0)) == [.began(controllers: ["iPhone"])])
-        #expect(s.update(absent, now: at(1.0)) == [])
-        #expect(s.update(absent, now: at(2.0)) == [.interrupted])
+        #expect(update(&s, present("iPhone"), 0) == [.began(controllers: ["iPhone"])])
+        #expect(update(&s, absent, 1.0) == [])
+        #expect(update(&s, absent, 2.0) == [.interrupted])
         #expect(s.isConnected == false)
         #expect(s.inEpisode)
-        #expect(s.update(present, now: at(3.0)) == [.resumed(controllers: ["iPhone"])])
-        #expect(s.update(absent, now: at(5.0)) == [.interrupted])
-        #expect(s.update(absent, now: at(20.0)) == [])
-        #expect(s.update(absent, now: at(20.1)) == [.ended])
+        #expect(update(&s, present("iPhone"), 3.0) == [.resumed(controllers: ["iPhone"])])
+        #expect(update(&s, absent, 5.0) == [.interrupted])
+        #expect(update(&s, absent, 20.0) == [])
+        #expect(update(&s, absent, 20.1) == [.ended])
         #expect(!s.inEpisode)
     }
 
     @Test("窗口过后同一拍又连上：先 ended 再 began")
     func endedThenBegan() {
         var s = RemoteSession()
-        _ = s.update(present, now: at(0))
-        _ = s.update(absent, now: at(2.0))
-        #expect(s.update(present, now: at(30)) == [.ended, .began(controllers: ["iPhone"])])
+        _ = update(&s, present("iPhone"), 0)
+        _ = update(&s, absent, 2.0)
+        #expect(update(&s, present("iPhone"), 30) == [.ended, .began(controllers: ["iPhone"])])
     }
 
     @Test("重连窗口里立即结束：透传 ended，会话随之结束（issue #29）")
     func endNow() {
         var s = RemoteSession()
-        _ = s.update(present, now: at(0))
-        _ = s.update(absent, now: at(2.0))
+        _ = update(&s, present("iPhone"), 0)
+        _ = update(&s, absent, 2.0)
         #expect(s.endNow() == .ended)
         #expect(!s.inEpisode)
-        #expect(s.update(absent, now: at(3.0)) == [])
+        #expect(update(&s, absent, 3.0) == [])
     }
 
     @Test("控制端变化透传为 controllersChanged")
     func controllersChanged() {
         var s = RemoteSession()
-        _ = s.update(UUSignals(overlayVisible: true, controllers: .unreadable, captureActive: nil), now: at(0))
-        #expect(s.update(present, now: at(0.5)) == [.controllersChanged(["iPhone"])])
+        _ = update(&s, present(), 0)
+        #expect(update(&s, present("iPhone"), 0.5) == [.controllersChanged(["iPhone"])])
         #expect(s.controllers == ["iPhone"])
     }
 
-    @Test("回归 #1：没认出控制端、推流一直在，远程不断开；停流后照常 interrupted、ended")
-    func unrecognizedTableKeepsStreamingSession() {
+    @Test("回归 #1：在场却一直没认出控制端，300 秒也不断开；不在场后照常 interrupted、ended")
+    func unrecognizedControllersKeepSession() {
         var s = RemoteSession()
-        let streaming = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: true)
-        let stopped = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: false)
-        #expect(s.update(streaming, now: at(0)) == [.began(controllers: [])])
+        #expect(update(&s, present(), 0) == [.began(controllers: [])])
         for seconds in [0.5, 59.5, 60, 60.5, 75.6, 300] {
-            #expect(s.update(streaming, now: at(seconds)) == [])
+            #expect(update(&s, present(), seconds) == [])
         }
         #expect(s.inEpisode)
-        #expect(s.update(stopped, now: at(300.5)) == [])
-        #expect(s.update(stopped, now: at(301.6)) == [.interrupted])
-        #expect(s.update(stopped, now: at(316.7)) == [.ended])
+        #expect(update(&s, absent, 300.5) == [])
+        #expect(update(&s, absent, 301.6) == [.interrupted])
+        #expect(update(&s, absent, 316.7) == [.ended])
     }
 
     @Test("自扰静默期经 RemoteSession 转给 tracker")
     func selfInduced() {
         var s = RemoteSession()
-        _ = s.update(present, now: at(0))
+        _ = update(&s, present("iPhone"), 0)
         s.noteSelfInducedChange(at: at(0))
-        #expect(s.update(absent, now: at(4.0)) == [])
-        #expect(s.update(absent, now: at(5.1)) == [.interrupted])
+        #expect(update(&s, absent, 4.0) == [])
+        #expect(update(&s, absent, 5.1) == [.interrupted])
     }
 }
 
 @Suite("换手接管 RemoteSession")
 struct HandoverTests {
-    private let streaming = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: true)
-    private let stopped = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: false)
-
-    @Test("换手慢到断开了（推流停过了宽限）：还在 15 秒重连等待期里，算同一次远程（ScreenPlan 只看在不在远程，屏不撤）")
+    @Test("换手慢到断开了（不在场过了宽限）：还在 15 秒重连等待期里，算同一次远程（ScreenPlan 只看在不在远程，屏不撤）")
     func slowTakeover() {
         var s = RemoteSession()
-        _ = s.update(streaming, now: at(0))
-        _ = s.update(streaming, now: at(9.5))
-        #expect(s.update(stopped, now: at(10)) == [])
-        #expect(s.update(stopped, now: at(11.1)) == [.interrupted])
+        _ = s.update(reading(present()), now: at(0))
+        _ = s.update(reading(present()), now: at(9.5))
+        #expect(s.update(reading(absent), now: at(10)) == [])
+        #expect(s.update(reading(absent), now: at(11.1)) == [.interrupted])
         #expect(s.inEpisode)
-        #expect(s.update(streaming, now: at(20)) == [.resumed(controllers: [])])
+        #expect(s.update(reading(present()), now: at(20)) == [.resumed(controllers: [])])
         #expect(s.inEpisode)
     }
 }

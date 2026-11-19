@@ -1,4 +1,4 @@
-// 一拍里对 UU远程 的观测
+// 一拍里对 UU远程 的观测：三路信号，怎么算在场，怎么交给核心
 import Foundation
 
 public struct UUSignals: Equatable, Sendable, CustomStringConvertible {
@@ -19,16 +19,27 @@ public struct UUSignals: Equatable, Sendable, CustomStringConvertible {
     /// 表格读不到或没认出控制端都不算缺席的证据（见 ControllerTable）
     public var isPresent: Bool { overlayVisible || !controllers.names.isEmpty || captureActive == true }
 
+    /// 交给核心的中性观测。信号快照就是 description，日志里的写法和抽出适配层之前逐字一样
+    public func observation(streamedDisplay: DisplayID?) -> RemoteObservation {
+        RemoteObservation(present: isPresent, controllers: controllers.names, streamedDisplay: streamedDisplay, evidence: description)
+    }
+
     public var description: String {
         let capture = captureActive.map { $0 ? "是" : "否" } ?? "未知"
         return "overlay=\(overlayVisible ? "是" : "否") 控制端=\(controllers) capture=\(capture)"
     }
-}
 
-public enum ConnectionEvent: Equatable, Sendable {
-    /// 连入时认出的控制端（可能还没读到，为空）
-    case connected(controllers: [String])
-    /// 同时连着的控制端变了：有人加入、有人离开
-    case controllersChanged([String])
-    case disconnected
+    /// 从日志里的信号快照（description 的写法）读回覆盖窗口和推流两路，UU 自检用。
+    /// 写法对不上时为 nil：description 改了措辞，这里和往返测试一起改
+    public static func logged(_ evidence: String) -> (overlay: Bool, capture: Bool?)? {
+        guard let overlay = field("overlay=", in: evidence), let capture = field("capture=", in: evidence),
+              ["是", "否"].contains(overlay), ["是", "否", "未知"].contains(capture) else { return nil }
+        return (overlay == "是", capture == "未知" ? nil : capture == "是")
+    }
+
+    /// 「key=值」里的值，到空格为止
+    private static func field(_ key: String, in text: String) -> String? {
+        guard let start = text.range(of: key)?.upperBound else { return nil }
+        return String(text[start...].prefix { $0 != " " })
+    }
 }

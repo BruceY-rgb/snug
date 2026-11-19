@@ -1,15 +1,16 @@
-// Snug 自己的日志（Snug.log）里和 UU 有关的几样：远程开始与结束、连入时的三路信号、认出的控制端、Snug 的屏的编号。
-// UU 兼容自检（UUCheck）拿它和 UU 的推流日志对照：Snug 记到了远程、UU 日志里却没有可认的推流，才说得上是 UU 变了。
-// 只认这几句的固定写法（AppController、ConnectionTracker、ScreenSet 打的），那边改措辞时这里和测试一起改
+// Snug 自己的日志（Snug.log）里和远程有关的几样：远程开始与结束、连入时的信号快照、认出的控制端、Snug 的屏的编号。
+// 远控的兼容自检（UU 见 UUCheck）拿它和远控自己的日志对照：Snug 记到了远程、远控日志里却没有对应的痕迹，才说得上是远控变了。
+// 只认这几句的固定写法：会话和连入的写法由 RemoteSession、ConnectionTracker 的 logLine 产出，往返测试钉住两边；
+// 屏的写法是 ScreenSet、Desk 打的，那边改措辞时这里和测试一起改
 import Foundation
 
 public struct SnugLogDigest: Equatable, Sendable {
-    /// 「检测到 UU 连入」那一刻三路信号的快照（见 UUSignals.description）
+    /// 「检测到 <远控> 连入」那一刻的信号快照（写法由适配器定，UU 见 UUSignals.description）
     public struct Detection: Equatable, Sendable {
         public var date: Date
-        public var overlay: Bool
-        /// 推流信号：未知为 nil
-        public var capture: Bool?
+        /// 远控的日志名（RemoteIdentity.logName）
+        public var remote: String
+        public var evidence: String
     }
 
     /// 远程开始（「会话：开始」）
@@ -43,9 +44,6 @@ public struct SnugLogDigest: Equatable, Sendable {
         }
     }
 
-    /// 「名字未读到」时日志里的写法（AppController.names）
-    static let unnamed = "读不到名字"
-
     private mutating func take(_ message: String, at date: Date) {
         if message.hasPrefix("会话：开始") {
             sessionStarts.append(date)
@@ -56,10 +54,8 @@ public struct SnugLogDigest: Equatable, Sendable {
             note(Self.controllerList(in: message, after: "会话：控制端变为 "))
         } else if message.hasPrefix("会话：结束") || message.hasPrefix("会话：立即结束") {
             sessionEnds.append(date)
-        } else if message.hasPrefix("检测到 UU 连入（") {
-            let capture = Self.field("capture=", in: message)
-            detections.append(Detection(date: date, overlay: Self.field("overlay=", in: message) == "是",
-                                        capture: capture == "是" ? true : capture == "否" ? false : nil))
+        } else if let detection = Self.detection(in: message, at: date) {
+            detections.append(detection)
         }
         for marker in ["放上屏 #", "已撤掉屏 #"] {
             if let id = Self.number(after: marker, in: message) { snugDisplays.insert(id) }
@@ -80,13 +76,16 @@ public struct SnugLogDigest: Equatable, Sendable {
         guard let start = message.range(of: marker)?.upperBound else { return [] }
         let tail = message[start...]
         let list = tail.prefix { $0 != "）" }
-        return list.split(separator: "、").map(String.init).filter { !$0.isEmpty && $0 != unnamed }
+        return list.split(separator: "、").map(String.init).filter { !$0.isEmpty && $0 != SessionTransition.unnamed }
     }
 
-    /// 「key=值」里的值，到空格为止
-    private static func field(_ key: String, in message: String) -> String? {
-        guard let start = message.range(of: key)?.upperBound else { return nil }
-        return String(message[start...].prefix { $0 != " " && $0 != "）" })
+    /// 「检测到 <远控> 连入（<快照> 距上次在场 …）」（ConnectionTracker.logLine）
+    private static func detection(in message: String, at date: Date) -> Detection? {
+        let prefix = "检测到 "
+        guard message.hasPrefix(prefix), let joined = message.range(of: " 连入（"),
+              let tail = message.range(of: " 距上次在场", range: joined.upperBound..<message.endIndex) else { return nil }
+        let remote = message[message.index(message.startIndex, offsetBy: prefix.count)..<joined.lowerBound]
+        return Detection(date: date, remote: String(remote), evidence: String(message[joined.upperBound..<tail.lowerBound]))
     }
 
     private static func number(after marker: String, in message: String) -> DisplayID? {

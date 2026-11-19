@@ -2,20 +2,20 @@ import Foundation
 import Testing
 @testable import SnugCore
 
-/// 行照 2026-11-18 本机 Snug.log 的真实写法造
+/// 行照 2026-11-18 本机 Snug.log 的真实写法造，远控换成假的「甲」，信号快照对摘要来说是原样照抄的一段字
 private let sample = """
 [2026-11-18 20:00:40.000] [info] 开始监控（开着的屏：Snug 手机屏，手势已开）
-[2026-11-18 20:00:46.003] [info] 检测到 UU 连入（overlay=否 控制端=未识别 capture=是 距上次在场 0.00s）
+[2026-11-18 20:00:46.003] [info] 检测到 甲 连入（信号=一 距上次在场 0.00s）
 [2026-11-18 20:00:46.003] [info] 会话：开始（控制端 读不到名字）
 [2026-11-18 20:00:46.502] [info] 会话：控制端变为 iPhone
 [2026-11-18 20:00:47.365] [info] 「Snug 手机屏」#366 已建好（540 宽）
 [2026-11-18 20:01:08.246] [info] Safari浏览器「标题」 放上屏 #366（2.0s）：原位 (183,-1029 1200x882)，已铺满
 [2026-11-18 20:01:30.000] [info] 会话：重连上，仍是同一次远程（控制端 iPad (第 10 代)、iPhone）
 [2026-11-18 20:01:31.000] [info] [帮手] 切屏幕 #366 到 540x1170：switched
-[2026-11-18 20:02:13.506] [info] 检测到 UU 断开（overlay=否 控制端=未识别 capture=否 距上次在场 2.00s）
+[2026-11-18 20:02:13.506] [info] 检测到 甲 断开（信号=无 距上次在场 2.00s）
 [2026-11-18 20:02:28.000] [info] 会话：结束
 [2026-11-18 20:02:31.956] [info] 已撤掉屏 #367（phone）
-[2026-11-18 20:05:00.000] [info] 检测到 UU 连入（overlay=是 控制端=iPhone capture=未知 距上次在场 0.00s 静默期剩 4.45s）
+[2026-11-18 20:05:00.000] [info] 检测到 乙 连入（信号=二 控制端=iPhone 距上次在场 0.00s 静默期剩 4.45s）
 [2026-11-18 20:05:00.100] [info] 会话：立即结束（不等重连窗口）
 """
 
@@ -36,11 +36,35 @@ struct SnugLogDigestTests {
         #expect(d.sessionStarts == [at("20:00:46.003")])
         #expect(d.sessionEnds == [at("20:02:28.000"), at("20:05:00.100")])
         #expect(d.detections == [
-            .init(date: at("20:00:46.003"), overlay: false, capture: true),
-            .init(date: at("20:05:00.000"), overlay: true, capture: nil),
+            .init(date: at("20:00:46.003"), remote: "甲", evidence: "信号=一"),
+            .init(date: at("20:05:00.000"), remote: "乙", evidence: "信号=二 控制端=iPhone"),
         ])
         #expect(d.controllers == ["iPhone", "iPad (第 10 代)"])
         #expect(d.snugDisplays == [366, 367])
+    }
+
+    @Test("往返：会话和连入的日志行由产出方的 logLine 生成，经日志文件写出再读回，摘要认得出")
+    func roundTrip() throws {
+        let dir = try TempDir()
+        let url = dir.url.appendingPathComponent("Snug.log")
+        let sink = FileLogSink(url: url)
+        let start = at("20:00:00.000")
+        let messages = [
+            ConnectionTracker.logLine(.connected(controllers: []), remote: "甲", evidence: "信号=一 控制端=未识别", sincePresent: 0, quietLeft: 3),
+            SessionTransition.began(controllers: []).logLine,
+            SessionTransition.controllersChanged(["iPhone", "iPad"]).logLine,
+            SessionTransition.resumed(controllers: ["MacBook Pro"]).logLine,
+            SessionTransition.interrupted.logLine,
+            SessionTransition.ended.logLine,
+            RemoteSession.endedNowLine,
+        ]
+        for (i, message) in messages.enumerated() { sink.write(.info, message, at: start + Double(i)) }
+        sink.flush()
+        let d = SnugLogDigest(lines: try String(contentsOf: url, encoding: .utf8).split(separator: "\n"), since: .distantPast)
+        #expect(d.detections == [.init(date: start, remote: "甲", evidence: "信号=一 控制端=未识别")])
+        #expect(d.sessionStarts == [start + 1])
+        #expect(d.controllers == ["iPhone", "iPad", "MacBook Pro"])
+        #expect(d.sessionEnds == [start + 5, start + 6])
     }
 
     @Test("since 之前的行不算")

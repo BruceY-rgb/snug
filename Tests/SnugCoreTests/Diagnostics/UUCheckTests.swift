@@ -25,14 +25,16 @@ private func logLine(_ date: Date, _ message: String) -> String {
     return "[\(f.string(from: date))] [info] \(message)"
 }
 
-/// 照 Snug.log 的写法造：每次连入一行信号、每次远程一行开始，控制端和屏编号各一行
+/// 每次连入一行信号、每次远程一行开始，控制端和屏编号各一行。会话和连入的行用正式的 logLine 生成，跟着产出方的写法走
 private func snugLog(sessions: [Date] = [remoteStart], displays: [DisplayID] = [79], controller: String? = "iPhone",
                      captures: [Bool?]? = nil) -> [String] {
     let signals = (captures ?? sessions.map { _ in true }).map { capture in
-        logLine(remoteStart, "检测到 UU 连入（overlay=否 控制端=未识别 capture=\(capture.map { $0 ? "是" : "否" } ?? "未知") 距上次在场 0.00s）")
+        let evidence = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: capture).description
+        return logLine(remoteStart, ConnectionTracker.logLine(.connected(controllers: []), remote: UURemote.identity.logName,
+                                                              evidence: evidence, sincePresent: 0, quietLeft: nil))
     }
-    return signals + sessions.map { logLine($0, "会话：开始（控制端 读不到名字）") }
-        + (controller.map { [logLine(remoteStart, "会话：控制端变为 \($0)")] } ?? [])
+    return signals + sessions.map { logLine($0, SessionTransition.began(controllers: []).logLine) }
+        + (controller.map { [logLine(remoteStart, SessionTransition.controllersChanged([$0]).logLine)] } ?? [])
         + displays.map { logLine(remoteStart, "「Snug 手机屏」#\($0) 已建好（540 宽）") }
 }
 
@@ -141,16 +143,27 @@ struct UUCheckTests {
         #expect(item("推流日志", in: idle)?.detail.hasPrefix("UURemoteServer") == true)
     }
 
-    @Test("连接检测：推流信号未知的连入不计；一次都没亮是问题，亮了一部分需留意")
+    @Test("连接检测：推流信号未知的连入不计，全都未知时如实说；一次都没亮是问题，亮了一部分需留意")
     func detection() throws {
         let capture = try records("2257")
         func status(_ values: [Bool?]) -> UUCheck.Status? {
             item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: snugLog(captures: values))))?.status
         }
         #expect(status([true, nil]) == .ok)
-        #expect(status([nil]) == nil)
+        #expect(status([nil]) == .info)
         #expect(status([false, nil]) == .fail)
         #expect(status([true, false]) == .warn)
+    }
+
+    @Test("连接检测：远程过、日志里却认不出连入（Snug 改了日志写法），或信号快照读不出，需留意，不悄悄略过")
+    func detectionUnreadable() throws {
+        let capture = try records("2257")
+        let noDetections = snugLog(captures: [])
+        #expect(item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: noDetections)))?.status == .warn)
+        let garbled = snugLog(captures: []) + [logLine(remoteStart, "检测到 UU 连入（信号=改了写法 距上次在场 0.00s）")]
+        #expect(item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: garbled)))?.status == .warn)
+        let otherRemote = snugLog(captures: []) + [logLine(remoteStart, "检测到 甲 连入（overlay=否 控制端=未识别 capture=是 距上次在场 0.00s）")]
+        #expect(item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: otherRemote)))?.status == .warn)
     }
 
     @Test("控制端：远程过却一次都没认出需留意；此刻表上有名字也算认出")

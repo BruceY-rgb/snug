@@ -215,20 +215,33 @@ public enum UUCheck {
         return Item(status: .ok, title: "推流屏", detail: "推过 \(list)，其中 Snug 的屏 \(mine.map { "#\($0)" }.joined(separator: "、"))：切到 Snug 的屏认得出")
     }
 
-    /// Snug 连入时三路信号亮了哪几路。推流信号「未知」是 Snug 刚启动、日志监听还没回看完，不算 UU 的事
+    /// Snug 连入时三路信号亮了哪几路。推流信号「未知」是 Snug 刚启动、日志监听还没回看完，不算 UU 的事。
+    /// 远程过、日志里却一次连入都认不出，多半是 Snug 自己的日志写法改了：报出来，不悄悄略过这一项
     private static func detection(_ snug: SnugLogDigest) -> Item? {
-        let all = snug.detections
-        let known = all.filter { $0.capture != nil }
-        guard !known.isEmpty else { return nil }
+        let all = snug.detections.filter { $0.remote == UURemote.identity.logName }
+        let logged = all.compactMap { UUSignals.logged($0.evidence) }
+        let sessions = snug.sessionStarts.count
+        if all.isEmpty {
+            guard sessions > 0 else { return nil }
+            return Item(status: .warn, title: "连接检测",
+                        detail: "\(sessions) 次远程，Snug 日志里却没有一次「检测到 \(UURemote.identity.logName) 连入」：日志写法可能改了，无从核对")
+        }
+        let unreadable = all.count - logged.count
+        let known = logged.filter { $0.capture != nil }
         let lit = known.filter { $0.capture == true }.count
-        let overlay = all.filter(\.overlay).count
-        let unknown = all.count - known.count
+        let overlay = logged.filter(\.overlay).count
+        let unknown = logged.count - known.count
         let extra = "提示窗口 \(overlay) 次" + (unknown > 0 ? "；另有 \(unknown) 次连入时日志监听尚未就绪，不计" : "")
+            + (unreadable > 0 ? "；\(unreadable) 次连入的信号快照读不出" : "")
+        if known.isEmpty {
+            return Item(status: unreadable > 0 ? .warn : .info, title: "连接检测",
+                        detail: "\(all.count) 次连入都看不出推流信号（\(extra)）")
+        }
         if lit == 0 {
             return Item(status: .fail, title: "连接检测",
                         detail: "\(known.count) 次连入推流信号一次都没亮：只靠提示窗口与控制端表格，容易漏判、误判断开（\(extra)）")
         }
-        if lit < known.count {
+        if lit < known.count || unreadable > 0 {
             return Item(status: .warn, title: "连接检测", detail: "\(known.count) 次连入里推流信号亮了 \(lit) 次（\(extra)）")
         }
         return Item(status: .ok, title: "连接检测", detail: "\(known.count) 次连入推流信号都亮了（\(extra)）")

@@ -1,5 +1,5 @@
-// AppController：把 UU 的观测、会话层和屏幕调度接在一起。
-// 每 0.5 秒一拍：感知器给出观测 → 会话层判断连没连、是不是同一次远程 → ScreenPlan 按配置算出要哪些屏，交给 DeskSet。
+// AppController：把远控的观测、会话层和屏幕调度接在一起。
+// 每 0.5 秒一拍：适配器给出观测 → 会话层判断连没连、是不是同一次远程 → ScreenPlan 按配置算出要哪些屏，交给 DeskSet。
 // 要翻译手势的屏在时开手势翻译，范围跟着那几块屏走。全仓唯一写配置的地方；界面只读 state，意图见 AppController+Intents
 import AppKit
 import SnugCore
@@ -137,8 +137,8 @@ final class AppController: Sendable {
         lastTickAt = now
         refreshTrust()
         screenshots.expire()
-        let sample = sensor.sample(now: Date())
-        handle(session.update(sample.signals, now: now))
+        let observation = sensor.sample(wallClock: Date())
+        handle(session.update(RemoteReading(remote: sensor.identity, observation: observation), now: now))
         keepPointerOffSnugScreens()
         if now.timeIntervalSince(lastVerifyAt) >= Self.verifyInterval {
             lastVerifyAt = now
@@ -148,12 +148,11 @@ final class AppController: Sendable {
             refreshScreenRecording()
         }
         // UU 一次只让一台设备控制（V12），推流只有一路画面，在推哪块屏直接看它
-        state.update(\.streamedDisplay, sample.streamingDisplay)
+        state.update(\.streamedDisplay, observation.streamedDisplay)
     }
 
     /// 会话变化统一在这里落地（每拍和菜单的「立即结束」共用）
     private func handle(_ transitions: [SessionTransition]) {
-        for t in transitions { Log.info("会话：\(Self.describe(t))") }
         if transitions.contains(.ended) {
             // 远程结束先说一声一块屏都不要，再按「不在远程」重算（只剩常驻的主屏）。不先说「不要」的话，下一次在同一拍里
             // 开始时前后要的屏一样，上一次在手机上退出的屏会带进这一次。同一拍里先「不要」再「要」不会撤屏重建（DeskSet 排队时读的是最新结论）
@@ -181,7 +180,6 @@ final class AppController: Sendable {
     /// 只在重连等待期里有意义：不在这段时间里时 session.endNow() 什么都不做
     func endSessionNow() {
         guard let change = session.endNow() else { return }
-        Log.info("会话：立即结束（不等重连窗口）")
         handle([change])
     }
 
@@ -244,19 +242,5 @@ final class AppController: Sendable {
 
     private func screenName(_ id: ScreenID) -> String {
         store.config.screens.first { $0.id == id }?.name ?? id.rawValue
-    }
-
-    static func describe(_ t: SessionTransition) -> String {
-        switch t {
-        case .began(let c): "开始（控制端 \(names(c))）"
-        case .resumed(let c): "重连上，仍是同一次远程（控制端 \(names(c))）"
-        case .controllersChanged(let c): "控制端变为 \(names(c))"
-        case .interrupted: "断开，等 \(Int(SessionEpisode.reconnectWindow))s 看会不会重连"
-        case .ended: "结束"
-        }
-    }
-
-    private static func names(_ controllers: [String]) -> String {
-        controllers.isEmpty ? "读不到名字" : controllers.joined(separator: "、")
     }
 }
