@@ -61,7 +61,9 @@ struct RemoteContractTests {
     @Test("它自己的 App 不出现在资源库里", arguments: drivers)
     func excludedFromLibrary(driver: any RemoteDriver) {
         let own = InstalledApp(AppInfo(bundleID: driver.appBundleID, name: driver.identity.displayName, path: "/Applications/x.app"), english: "x")
-        #expect(AppList.excluding(driver.identity.bundleIDs, from: [own]).isEmpty)
+        #expect(AppList.sorted([own], excluding: driver.identity.bundleIDs).isEmpty)
+        let running = RunningApp(pid: 1, app: own.app, windows: [])
+        #expect(AppList.refreshed([running], shown: [], reorder: true, excluding: driver.identity.bundleIDs).isEmpty)
     }
 
     @Test("每次观测都带信号快照：写进连入、断开日志，排查误判用", arguments: drivers)

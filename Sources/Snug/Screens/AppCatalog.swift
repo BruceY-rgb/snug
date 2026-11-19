@@ -23,7 +23,7 @@ final class AppCatalog {
     /// 每个窗口在哪块屏、露没露着（电脑屏的资源库标在每个窗口后面）。只在有人要时跟着刷新读
     private(set) var spots: [WindowKey: WindowSpot]
 
-    /// 不出现在资源库里的 App：各家远控自己（见 AppList.excluding）
+    /// 不出现在资源库里的 App：各家远控自己（见 AppList.sorted）
     @ObservationIgnored private let excluded: Set<String>
     @ObservationIgnored private let apps: AppService?
     @ObservationIgnored private let windows: WindowService?
@@ -58,7 +58,7 @@ final class AppCatalog {
         apps = nil
         windows = nil
         self.running = running
-        self.installed = AppList.sorted(installed)
+        self.installed = AppList.sorted(installed, excluding: [])
         self.loaded = loaded
         self.spots = spots
     }
@@ -85,7 +85,7 @@ final class AppCatalog {
         guard let apps, let windows else { return }
         if scanning == nil {
             scanning = Task { [weak self, excluded] in
-                let list = AppList.sorted(AppList.excluding(excluded, from: await apps.installed()))
+                let list = AppList.sorted(await apps.installed(), excluding: excluded)
                 guard let self, !Task.isCancelled, list != installed else { return }
                 installed = list
             }
@@ -104,7 +104,7 @@ final class AppCatalog {
                         if let located, locating, located != spots { spots = located }
                         spotsFirst = false
                     }
-                    let fresh = await windows.withWindows(AppList.excluding(excluded, from: apps.running()))
+                    let fresh = await windows.withWindows(apps.running())
                     guard !Task.isCancelled else { return }
                     // 紧跟着列表读，两边对得上；重启轮前面预读过一遍，这里补上列表扫描期间的变化
                     if locating {
@@ -113,7 +113,7 @@ final class AppCatalog {
                     }
                     spotsFirst = false
                     guard forgotten == before else { continue }
-                    let next = reorder ? fresh : AppList.keepingOrder(of: running, updatedWith: fresh)
+                    let next = AppList.refreshed(fresh, shown: running, reorder: reorder, excluding: excluded)
                     if next != running { running = next }
                     if let located, locating, located != spots { spots = located }
                     loaded = true

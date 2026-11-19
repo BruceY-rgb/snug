@@ -32,23 +32,31 @@ struct AppListTests {
 
     @Test("字典序：中文按拼音插在英文中间，数字开头的在最前，同一个 App 装两份只留一份")
     func sorted() {
-        let list = AppList.sorted([ghosttyApp, notesApp, bionic, onePassword, code, installed("com.mitchellh.ghostty", "Ghostty 副本")])
+        let list = AppList.sorted([ghosttyApp, notesApp, bionic, onePassword, code, installed("com.mitchellh.ghostty", "Ghostty 副本")], excluding: [])
         #expect(list.map(\.app.name) == ["1Password", "备忘录", "Bionic", "Ghostty", "Visual Studio Code"])
     }
 
-    @Test("远控自己的 App 不出现在全部 App 和在跑的 App 里；名单外的照常")
+    @Test("远控自己的 App 不出现在全部 App 和在跑的 App 里（不管是不是第一次刷新）；名单外的照常")
     func excludesRemotes() {
         let hidden: Set<String> = ["com.example.jia", "com.example.yi"]
-        let remote = installed("com.example.jia", "甲远程")
-        #expect(AppList.excluding(hidden, from: [remote, ghosttyApp]).map(\.app.name) == ["Ghostty"])
-        let apps = [running(1, [], bundle: "com.example.yi"), running(2, [])]
-        #expect(AppList.excluding(hidden, from: apps).map(\.pid) == [2])
-        #expect(AppList.excluding([], from: apps).map(\.pid) == [1, 2])
+        #expect(AppList.sorted([installed("com.example.jia", "甲远程"), ghosttyApp], excluding: hidden).map(\.app.name) == ["Ghostty"])
+        let fresh = [running(1, [], bundle: "com.example.yi"), running(2, [])]
+        #expect(AppList.refreshed(fresh, shown: [], reorder: true, excluding: hidden).map(\.pid) == [2])
+        #expect(AppList.refreshed(fresh, shown: [running(2, [])], reorder: false, excluding: hidden).map(\.pid) == [2])
+        #expect(AppList.refreshed(fresh, shown: [], reorder: true, excluding: []).map(\.pid) == [1, 2])
+    }
+
+    @Test("刷新：第一次用新读到的顺序；之后保持露着时的顺序，新出现的接在后面")
+    func refreshedKeepsOrder() {
+        let shown = [running(2, []), running(1, [])]
+        let fresh = [running(1, []), running(3, []), running(2, [])]
+        #expect(AppList.refreshed(fresh, shown: shown, reorder: true, excluding: []).map(\.pid) == [1, 3, 2])
+        #expect(AppList.refreshed(fresh, shown: shown, reorder: false, excluding: []).map(\.pid) == [2, 1, 3])
     }
 
     @Test("搜索：中文名、英文名、全拼、首字母都能搜到；开头就对上的排前面，只是包含的排后面")
     func searchApps() {
-        let all = AppList.sorted([notesApp, memos, ghosttyApp, code])
+        let all = AppList.sorted([notesApp, memos, ghosttyApp, code], excluding: [])
         #expect(AppList.search("bei", installed: all, running: []).apps.map(\.name) == ["备忘录", "语音备忘录"])
         #expect(AppList.search("bwl", installed: all, running: []).apps.map(\.name) == ["备忘录"])
         #expect(AppList.search("备忘", installed: all, running: []).apps.map(\.name) == ["备忘录", "语音备忘录"])
@@ -106,7 +114,7 @@ struct AppListTests {
 
     @Test("按首字母分组：中文按拼音首字母，数字、符号、表情开头的归到最后的 #，组内保持原顺序")
     func grouped() {
-        let list = AppList.sorted([ghosttyApp, notesApp, bionic, onePassword, code, memos, installed("x.emoji", "🎵 音乐")])
+        let list = AppList.sorted([ghosttyApp, notesApp, bionic, onePassword, code, memos, installed("x.emoji", "🎵 音乐")], excluding: [])
         let groups = AppList.grouped(list)
         #expect(groups.map(\.letter) == ["B", "G", "V", "Y", "#"])
         #expect(groups.map { $0.apps.map(\.app.name) } == [["备忘录", "Bionic"], ["Ghostty"], ["Visual Studio Code"], ["语音备忘录"],

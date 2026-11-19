@@ -116,21 +116,20 @@ public enum AppList {
         return shown.compactMap { latest[$0.key] } + fresh.filter { !known.contains($0.key) }
     }
 
-    /// 去掉不出现在资源库里的 App。名单是各家远控自己的 App（RemoteIdentity.bundleIDs，App 层按登记的远控给）：
+    /// 刷新后列表里的在跑 App：去掉 excluded 里的（见 sorted）；reorder 时用新读到的顺序（已按最近用过排），
+    /// 否则保持列表露着时的顺序（见 keepingOrder）
+    public static func refreshed(_ fresh: [RunningApp], shown: [RunningApp], reorder: Bool, excluding excluded: Set<String>) -> [RunningApp] {
+        let listed = fresh.filter { !excluded.contains($0.app.bundleID) }
+        return reorder ? listed : keepingOrder(of: shown, updatedWith: listed)
+    }
+
+    /// 全部 App 按字典序，同一个 App 装了两份（比如「应用程序」和用户目录各一份）只留第一份。
+    /// excluded 不出现在资源库里：各家远控自己的 App（RemoteIdentity.bundleIDs，按登记的远控给），
     /// 把遥控器放到 Snug 的屏上没有意义，退了它远程就断了
-    public static func excluding(_ bundles: Set<String>, from apps: [InstalledApp]) -> [InstalledApp] {
-        apps.filter { !bundles.contains($0.app.bundleID) }
-    }
-
-    public static func excluding(_ bundles: Set<String>, from apps: [RunningApp]) -> [RunningApp] {
-        apps.filter { !bundles.contains($0.app.bundleID) }
-    }
-
-    /// 全部 App 按字典序，同一个 App 装了两份（比如「应用程序」和用户目录各一份）只留第一份
-    public static func sorted(_ apps: [InstalledApp]) -> [InstalledApp] {
+    public static func sorted(_ apps: [InstalledApp], excluding excluded: Set<String>) -> [InstalledApp] {
         var seen = Set<String>()
         return apps
-            .filter { seen.insert($0.app.bundleID).inserted }
+            .filter { !excluded.contains($0.app.bundleID) && seen.insert($0.app.bundleID).inserted }
             .sorted { $0.keys.sortKey.localizedStandardCompare($1.keys.sortKey) == .orderedAscending }
     }
 
