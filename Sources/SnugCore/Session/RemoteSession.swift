@@ -1,7 +1,14 @@
 // 会话层的组合：连接判定 + 会话生命周期，把每拍观测变成功能模块要处理的会话变化。
 // 功能模块（屏幕调度）只消费会话状态，会话层不知道有哪些功能。
 // UU 同一时刻只让一台设备控制一台 Mac（实测 V12）：第二台只能「接管设备」，前一台的推流停掉 0.6～0.7 秒后新的一台起推流，
-// 落在重连等待期里，算同一次远程。控制端只当作「有人在远程」的证据之一，不拿来判断设备类型
+// 落在重连等待期里，算同一次远程。控制端只当作「有人在远程」的证据之一，不拿来判断设备类型。
+// 登记了几家远控时，一次远程只归一家（owner），每拍只把归属方的观测交给连接判定：
+// - 未连接时（空闲，或断开后的重连等待期）：归登记顺序里第一家报在场的。都不在场就保留原归属，交它这一拍的真实观测，
+//   断开日志带的仍是它的信号快照
+// - 已连接时：归属不变。别家也报在场，只在这次远程里头一回记一条日志，不抢
+// - 重连等待期里换了一家连入：算同一次远程（resumed），屏不撤不建，推流屏、名字改取新的归属方
+// - 会话结束时清空归属
+// 只登记一家时，每拍交给连接判定的就是它的观测，和只有这一家时完全一样
 import Foundation
 
 public enum SessionTransition: Equatable, Sendable {
@@ -19,6 +26,12 @@ public enum SessionTransition: Equatable, Sendable {
 public struct RemoteSession: Sendable {
     public private(set) var tracker = ConnectionTracker()
     public private(set) var episode = SessionEpisode()
+    /// 这次远程归哪家：连入时定下，会话结束时清空
+    public private(set) var owner: RemoteIdentity?
+    /// 这一拍交给连接判定的那份观测：归属方的；还没有归属时是第一家的
+    public private(set) var current: RemoteReading?
+    /// 这次远程里已经记过「另有一家报在场」的
+    private var noticed: Set<String> = []
 
     public init() {}
 
@@ -27,30 +40,55 @@ public struct RemoteSession: Sendable {
     public var controllers: [String] { tracker.controllers }
     public var inEpisode: Bool { episode.isActive }
 
-    public mutating func update(_ reading: RemoteReading, now: Date) -> [SessionTransition] {
+    /// readings：每家登记的远控这一拍的观测，按登记顺序
+    public mutating func update(_ readings: [RemoteReading], now: Date) -> [SessionTransition] {
         var out: [SessionTransition] = []
-        if episode.advance(to: now) == .ended { out.append(.ended) }
-        switch tracker.update(reading.observation, from: reading.remote.logName, now: now) {
-        case .connected(let names)?:
-            if episode.connected(at: now) == .began {
-                out.append(.began(controllers: names))
-            } else {
-                out.append(.resumed(controllers: names))
-            }
-        case .controllersChanged(let names)?:
-            out.append(.controllersChanged(names))
-        case .disconnected?:
-            if episode.disconnected(at: now) == .interrupted { out.append(.interrupted) }
-        case nil:
-            break
+        if episode.advance(to: now) == .ended {
+            out.append(.ended)
+            clearOwner()
+        }
+        let mine = owner.flatMap { owner in readings.first { $0.remote == owner } }
+        let fed = tracker.isConnected ? mine : readings.first { $0.observation.present } ?? mine ?? readings.first
+        current = fed
+        if let fed {
+            out += feed(fed, now: now)
         }
         for t in out { Log.info(t.logLine) }
+        if tracker.isConnected, let owner { noteOthers(readings, owner: owner) }
         return out
+    }
+
+    private mutating func feed(_ reading: RemoteReading, now: Date) -> [SessionTransition] {
+        switch tracker.update(reading.observation, from: reading.remote.logName, now: now) {
+        case .connected(let names)?:
+            owner = reading.remote
+            return [episode.connected(at: now) == .began ? .began(controllers: names) : .resumed(controllers: names)]
+        case .controllersChanged(let names)?:
+            return [.controllersChanged(names)]
+        case .disconnected?:
+            return episode.disconnected(at: now) == .interrupted ? [.interrupted] : []
+        case nil:
+            return []
+        }
+    }
+
+    /// 已连接时别家也报在场：只记一条，不抢归属
+    private mutating func noteOthers(_ readings: [RemoteReading], owner: RemoteIdentity) {
+        for other in readings where other.remote != owner && other.observation.present {
+            guard noticed.insert(other.remote.logName).inserted else { continue }
+            Log.info("另有 \(other.remote.logName) 报告连接，本次远程归 \(owner.logName)（\(other.observation.evidence)）")
+        }
+    }
+
+    private mutating func clearOwner() {
+        owner = nil
+        noticed = []
     }
 
     /// 用户不等重连窗口，立即结束本次会话；不在重连窗口里时什么都不做
     public mutating func endNow() -> SessionTransition? {
         guard episode.endNow() != nil else { return nil }
+        clearOwner()
         Log.info(Self.endedNowLine)
         Log.info(SessionTransition.ended.logLine)
         return .ended

@@ -56,7 +56,7 @@ struct SessionEpisodeTests {
 @Suite("远程会话 RemoteSession")
 struct RemoteSessionTests {
     private func update(_ s: inout RemoteSession, _ o: RemoteObservation, _ seconds: Double) -> [SessionTransition] {
-        s.update(reading(o), now: at(seconds))
+        s.update([reading(o)], now: at(seconds))
     }
 
     @Test("连入 → began；断开 → interrupted；窗口内重连 → resumed；窗口过后 → ended")
@@ -128,12 +128,12 @@ struct HandoverTests {
     @Test("换手慢到断开了（不在场过了宽限）：还在 15 秒重连等待期里，算同一次远程（ScreenPlan 只看在不在远程，屏不撤）")
     func slowTakeover() {
         var s = RemoteSession()
-        _ = s.update(reading(present()), now: at(0))
-        _ = s.update(reading(present()), now: at(9.5))
-        #expect(s.update(reading(absent), now: at(10)) == [])
-        #expect(s.update(reading(absent), now: at(11.1)) == [.interrupted])
+        _ = s.update([reading(present())], now: at(0))
+        _ = s.update([reading(present())], now: at(9.5))
+        #expect(s.update([reading(absent)], now: at(10)) == [])
+        #expect(s.update([reading(absent)], now: at(11.1)) == [.interrupted])
         #expect(s.inEpisode)
-        #expect(s.update(reading(present()), now: at(20)) == [.resumed(controllers: [])])
+        #expect(s.update([reading(present())], now: at(20)) == [.resumed(controllers: [])])
         #expect(s.inEpisode)
     }
 }

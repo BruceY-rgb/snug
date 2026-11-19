@@ -66,7 +66,7 @@ struct UUSignalsTests {
     func unrecognizedTableKeepsStreamingSession() {
         var s = RemoteSession()
         func update(_ signals: UUSignals, _ seconds: Double) -> [SessionTransition] {
-            s.update(RemoteReading(remote: UURemote.identity, observation: signals.observation(streamedDisplay: nil)), now: at(seconds))
+            s.update([RemoteReading(remote: UURemote.identity, observation: signals.observation(streamedDisplay: nil))], now: at(seconds))
         }
         let streaming = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: true)
         let stopped = UUSignals(overlayVisible: false, controllers: .unrecognized, captureActive: false)

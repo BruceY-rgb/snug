@@ -26,9 +26,10 @@ final class AppController: Sendable {
     let store: ConfigStore
     /// --preview-screens：不等远程就建出开着的屏
     private let preview: Bool
-    private let sensor = UUSensor()
+    /// 登记的远控适配器，按登记顺序（两家同时报在场时归第一家）
+    private let remotes: [any RemoteAdapter] = [UUSensor()]
     private var session = RemoteSession()
-    private let touch = TouchTap(sources: [UURemote.identity.injector])
+    private let touch: TouchTap
     private var watcher: DisplayWatcher?
     private var tickTimer: Timer?
     private var lastTickAt: Date?
@@ -47,7 +48,8 @@ final class AppController: Sendable {
         let apps = AppService()
         desks = DeskSet(displays: VirtualDisplayService(helper: helper), windows: windows, apps: apps,
                         arrangement: DisplayArrangementService(), paths: paths, defaultZoom: store.config.zoomSteps)
-        catalog = AppCatalog(apps: apps, windows: windows, excluding: UURemote.identity.bundleIDs)
+        catalog = AppCatalog(apps: apps, windows: windows, excluding: Set(remotes.flatMap(\.identity.bundleIDs)))
+        touch = TouchTap(sources: remotes.map(\.identity.injector))
         state.config = store.config
         state.previewing = preview
         state.devices = devices
@@ -105,7 +107,7 @@ final class AppController: Sendable {
         }
         watcher.start()
         self.watcher = watcher
-        sensor.start()
+        remotes.forEach { $0.start() }
         if state.accessibilityTrusted { desks.recover() }
         let timer = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -124,7 +126,7 @@ final class AppController: Sendable {
         tickTimer?.invalidate()
         tickTimer = nil
         watcher?.stop()
-        sensor.stop()
+        remotes.forEach { $0.stop() }
     }
 
     // MARK: 每拍
@@ -137,8 +139,8 @@ final class AppController: Sendable {
         lastTickAt = now
         refreshTrust()
         screenshots.expire()
-        let observation = sensor.sample(wallClock: Date())
-        handle(session.update(RemoteReading(remote: sensor.identity, observation: observation), now: now))
+        let wallClock = Date()
+        handle(session.update(remotes.map { RemoteReading(remote: $0.identity, observation: $0.sample(wallClock: wallClock)) }, now: now))
         keepPointerOffSnugScreens()
         if now.timeIntervalSince(lastVerifyAt) >= Self.verifyInterval {
             lastVerifyAt = now
@@ -147,8 +149,8 @@ final class AppController: Sendable {
             desks.settleDisplays()
             refreshScreenRecording()
         }
-        // UU 一次只让一台设备控制（V12），推流只有一路画面，在推哪块屏直接看它
-        state.update(\.streamedDisplay, observation.streamedDisplay)
+        // 推流只有一路画面（UU 一次只让一台设备控制，V12），在推哪块屏看这次远程的归属方
+        state.update(\.streamedDisplay, session.current?.observation.streamedDisplay)
     }
 
     /// 会话变化统一在这里落地（每拍和菜单的「立即结束」共用）
@@ -162,6 +164,7 @@ final class AppController: Sendable {
         desks.setRemote(session.inEpisode)
         state.update(\.connection, session.isConnected ? .connected : (session.inEpisode ? .reconnecting : .idle))
         state.update(\.controllers, session.controllers)
+        state.update(\.remoteName, session.owner?.displayName)
     }
 
     /// 断开后 UU 不再动指针，而 Snug 的屏要等重连窗口才撤。这十几秒里指针若停在 Snug 的屏上，
