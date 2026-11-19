@@ -119,7 +119,7 @@ Device, model, orientation, and name configurable per screen; up to 4 screens, e
 | Tablet · landscape / portrait | Calculated per model, text slightly larger than native | Same as above; two columns in landscape |
 | Computer · landscape | The controlling computer's resolution; notch area on MacBooks left clear, pixel for pixel | Nothing added, as with an ordinary display |
 
-- **Both orientations**: one phone, a portrait and a landscape screen, switched in UU Remote when rotating
+- **Both orientations**: one portrait and one landscape screen for the same phone or tablet (add the other orientation from its screen details); switch in UU Remote when you rotate
 - **Multiple phones**: one screen per phone or tablet, each with its own model
 - **Across devices**: one screen each for a phone, a tablet, and a computer, selected per device in use
 

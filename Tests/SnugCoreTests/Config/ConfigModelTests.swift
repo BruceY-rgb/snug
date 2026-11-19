@@ -68,6 +68,31 @@ struct ConfigModelTests {
         #expect(try decode(String(decoding: JSONEncoder().encode(c), as: UTF8.self)).screens.isEmpty)
     }
 
+    @Test("从旧版迁入的 iPad 仍可降级回读，单独新加的平板不会成为旧版的手机屏")
+    func legacyTabletFields() throws {
+        struct LegacyChoice: Decodable {
+            let model: String?
+            let screen: DeviceScreen
+        }
+        struct LegacyConfig: Decodable {
+            let phoneScreen: Bool
+            let phone: LegacyChoice
+        }
+        let tablet = DeviceChoice(model: "Apple iPad mini（第 6 代）", screen: DeviceScreen(width: 1488, height: 2266, points: 744), kind: .tablet)
+        var config = AppConfig()
+        config.screens[0].device = tablet
+        let encoder = JSONEncoder(), decoder = JSONDecoder()
+        let legacy = try decoder.decode(LegacyConfig.self, from: encoder.encode(config))
+        #expect(legacy.phoneScreen)
+        #expect(legacy.phone.model == tablet.model && legacy.phone.screen == tablet.screen)
+
+        config.removeScreen(.phone)
+        config.addScreen(orientation: .portrait, device: tablet)
+        let added = try decoder.decode(LegacyConfig.self, from: encoder.encode(config))
+        #expect(!added.phoneScreen)
+        #expect(added.phone.model == DeviceChoice.standard.model)
+    }
+
     @Test("加屏：序列号一段一段往后分，删掉的不回收；名字按型号和方向起")
     func addScreen() throws {
         var c = AppConfig()
@@ -84,6 +109,40 @@ struct ConfigModelTests {
         #expect(d.serials.first == 200_100_020)
         #expect(d.name == "我的手机")
         #expect(c.screens.map(\.id) == [.phone, b.id, d.id])
+    }
+
+    @Test("同一设备两种方向：已有的屏可以直接用；就算列表已满，也可以启用关着的另一方向")
+    func otherOrientation() {
+        var c = AppConfig()
+        let ipad = DeviceChoice(model: "Apple iPad mini（第 6 代）", screen: DeviceScreen(width: 1488, height: 2266, points: 744), kind: .tablet)
+        let portrait = c.addScreen(orientation: .portrait, device: ipad)!
+        let computer = c.addScreen(orientation: .landscape, device: DeviceChoice(model: nil, screen: ipad.screen, kind: .computer))!
+        #expect(c.otherOrientation(for: portrait) == .add(.landscape))
+        #expect(c.otherOrientation(for: computer) == nil)
+
+        let landscape = c.addScreen(orientation: .landscape, device: ipad, name: "书桌")!
+        #expect(c.otherOrientation(for: landscape) == .existing(portrait))
+        #expect(c.otherOrientation(for: portrait) == .existing(landscape))
+        #expect(c.otherOrientation(for: c.screens[0]) == .limitReached)
+        c.screens[3].enabled = false
+        #expect(c.otherOrientation(for: portrait) == .existing(c.screens[3]))
+    }
+
+    @Test("手动加过多块相同的横屏时，优先指向开着的那块")
+    func prefersEnabledOrientation() {
+        var c = AppConfig()
+        let phone = c.screens[0]
+        c.addScreen(orientation: .landscape, device: phone.device)
+        c.screens[1].enabled = false
+        let on = c.addScreen(orientation: .landscape, device: phone.device)!
+        #expect(c.otherOrientation(for: phone) == .existing(on))
+    }
+
+    @Test("横屏自定义的宽高重新打开时按填写方向显示，转成竖屏时共用同一份设备尺寸")
+    func orientedCustomDimensions() throws {
+        let screen = try #require(DeviceScreen.custom(2266, 1488))
+        #expect(screen.dimensions(in: .landscape) == (2266, 1488))
+        #expect(screen.dimensions(in: .portrait) == (1488, 2266))
     }
 
     @Test("降级到 2.5 跑过再升级回来（屏幕列表和计数器都被 2.5 写盘丢掉）：新屏的号按时间往后排，不复用以前分过的")
