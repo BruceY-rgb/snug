@@ -23,6 +23,8 @@ final class AppCatalog {
     /// 每个窗口在哪块屏、露没露着（电脑屏的资源库标在每个窗口后面）。只在有人要时跟着刷新读
     private(set) var spots: [WindowKey: WindowSpot]
 
+    /// 不出现在资源库里的 App：各家远控自己（见 AppList.excluding）
+    @ObservationIgnored private let excluded: Set<String>
     @ObservationIgnored private let apps: AppService?
     @ObservationIgnored private let windows: WindowService?
     @ObservationIgnored private var refreshing: Task<Void, Never>?
@@ -40,7 +42,8 @@ final class AppCatalog {
     /// 重启的循环先发布一次窗口位置，不等整轮 AX 扫描
     @ObservationIgnored private var spotsFirst = false
 
-    init(apps: AppService, windows: WindowService) {
+    init(apps: AppService, windows: WindowService, excluding excluded: Set<String>) {
+        self.excluded = excluded
         self.apps = apps
         self.windows = windows
         running = []
@@ -51,6 +54,7 @@ final class AppCatalog {
 
     /// 渲染样例用：固定的内容，不刷新
     init(sample running: [RunningApp], installed: [InstalledApp], spots: [WindowKey: WindowSpot] = [:], loaded: Bool = true) {
+        excluded = []
         apps = nil
         windows = nil
         self.running = running
@@ -80,8 +84,8 @@ final class AppCatalog {
     private func startRefreshing() {
         guard let apps, let windows else { return }
         if scanning == nil {
-            scanning = Task { [weak self] in
-                let list = AppList.sorted(await apps.installed())
+            scanning = Task { [weak self, excluded] in
+                let list = AppList.sorted(AppList.excluding(excluded, from: await apps.installed()))
                 guard let self, !Task.isCancelled, list != installed else { return }
                 installed = list
             }
@@ -100,7 +104,7 @@ final class AppCatalog {
                         if let located, locating, located != spots { spots = located }
                         spotsFirst = false
                     }
-                    let fresh = await windows.withWindows(apps.running())
+                    let fresh = await windows.withWindows(AppList.excluding(excluded, from: apps.running()))
                     guard !Task.isCancelled else { return }
                     // 紧跟着列表读，两边对得上；重启轮前面预读过一遍，这里补上列表扫描期间的变化
                     if locating {

@@ -1,4 +1,4 @@
-// 手势翻译的系统部分：一个事件监听，只接管 UURemoteServer 发来、在某块范围里按下的鼠标左键（每块要翻译手势的屏一块），
+// 手势翻译的系统部分：一个事件监听，只接管远控注入、在某块范围里按下的鼠标左键（每块要翻译手势的屏一块），
 // 交给 TouchTranslator 判断，再照它说的补发点击、右键或滚动（事件怎么读、怎么拼见 TouchEvents）。本机的触控板、鼠标一律不碰。
 // 跑在独立线程上：主线程会被建屏、搬窗口卡住，监听回调一慢，系统会让全机的鼠标跟着卡
 import CoreGraphics
@@ -12,10 +12,14 @@ public final class TouchTap {
     /// 手势翻译管的范围（CGEvent 坐标），每块要翻译手势的屏一块。主线程写，监听线程读
     private let regions = OSAllocatedUnfairLock<[TouchRegion]>(initialState: [])
     private var session: TapSession?
+    /// 接管哪些进程注入的事件：各家已登记的远控
+    private let sources: [InjectedEventSource]
     /// 手机上点了屏上那个窗口的关闭按钮（核对过、点击已经吞掉了），交回窗口编号：在主线程上调
     public var onCloseWindow: ((UInt32) -> Void)?
 
-    public init() {}
+    public init(sources: [InjectedEventSource]) {
+        self.sources = sources
+    }
 
     /// 只在这几块范围里翻译手势，一块都没有就关掉监听。范围变了（换档、屏幕重排）照样调，监听不用重开。
     /// 要翻译却建不起事件监听（多半是没有辅助功能权限）时交回 false，下次调用再试
@@ -31,7 +35,7 @@ public final class TouchTap {
     /// 起监听线程，等它报告监听建没建成
     private func start() -> Bool {
         guard session == nil else { return true }
-        let next = TapSession(regions: regions) { [weak self] window in
+        let next = TapSession(regions: regions, sources: sources) { [weak self] window in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.onCloseWindow?(window) } }
         }
         guard next.start() else {
@@ -39,7 +43,7 @@ public final class TouchTap {
             return false
         }
         session = next
-        Log.info("手势翻译已开启（只接管 \(UURemote.serverProcess) 发来、在 Snug 屏里的操作）")
+        Log.info("手势翻译已开启（只接管 \(sources.map(\.executableName).joined(separator: "、")) 发来、在 Snug 屏里的操作）")
         return true
     }
 
@@ -63,12 +67,13 @@ private final class TapSession: @unchecked Sendable {
     private var translator = TouchTranslator()
     private var heldPress: CGEvent?
     private var coastTimer: CFRunLoopTimer?
-    private var uu = UUEventSource()
+    private var injected: InjectedEvents
     /// 这一下按在哪块范围里：之后的拖动、抬起跟着这一下走，手指滑出范围也一样
     private var pressed: TouchRegion?
 
-    init(regions: OSAllocatedUnfairLock<[TouchRegion]>, closeWindow: @escaping @Sendable (UInt32) -> Void) {
+    init(regions: OSAllocatedUnfairLock<[TouchRegion]>, sources: [InjectedEventSource], closeWindow: @escaping @Sendable (UInt32) -> Void) {
         self.regions = regions
+        injected = InjectedEvents(sources: sources)
         self.closeWindow = closeWindow
     }
 
@@ -126,7 +131,7 @@ private final class TapSession: @unchecked Sendable {
             Log.warn("手势翻译的事件监听被系统停用（\(type == .tapDisabledByTimeout ? "回调超时" : "用户输入")），已重新开启")
             return pass
         }
-        guard let kind = TouchEvents.kind(of: type), !TouchEvents.isReplay(event), uu.sent(event) else { return pass }
+        guard let kind = TouchEvents.kind(of: type), !TouchEvents.isReplay(event), injected.injected(event) else { return pass }
 
         let input = TouchInput(kind, at: event.location, time: ProcessInfo.processInfo.systemUptime)
         if kind == .press { pressed = regions.withLock { $0 }.first { $0.frame.contains(event.location) } }

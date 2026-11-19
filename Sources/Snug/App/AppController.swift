@@ -28,7 +28,7 @@ final class AppController: Sendable {
     private let preview: Bool
     private let sensor = UUSensor()
     private var session = RemoteSession()
-    private let touch = TouchTap()
+    private let touch = TouchTap(sources: [UURemote.identity.injector])
     private var watcher: DisplayWatcher?
     private var tickTimer: Timer?
     private var lastTickAt: Date?
@@ -47,7 +47,7 @@ final class AppController: Sendable {
         let apps = AppService()
         desks = DeskSet(displays: VirtualDisplayService(helper: helper), windows: windows, apps: apps,
                         arrangement: DisplayArrangementService(), paths: paths, defaultZoom: store.config.zoomSteps)
-        catalog = AppCatalog(apps: apps, windows: windows)
+        catalog = AppCatalog(apps: apps, windows: windows, excluding: UURemote.identity.bundleIDs)
         state.config = store.config
         state.previewing = preview
         state.devices = devices
