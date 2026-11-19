@@ -1,13 +1,15 @@
-# 远控适配层拆分方案（讨论稿）
+# 远控适配层设计记录
 
-> 2026-11-19 · 分支 `remote-adapter` · 过程文档，合并前删除，结论并入正式文档与记忆
+> 2026-11-19 · 为什么这样切：调研、取舍、拍板，以及落地时相对方案的改动（第 12 节）
 >
-> 来源：三个只读调研 agent 的报告（[代码耦合与接口](research/coupling.md)、[目录与模块](research/structure.md)、[测试](research/tests.md)），加上我的交叉核对与取舍。第 9 节的 11 项已于 2026-11-19 拍板：全部按推荐执行。
+> **要接入一家远控，先看 [接入新的远控](../remotes/README.md)**（现行的端口、步骤、门禁），UU 的做法见 [UU远程 适配](../remotes/uu.md)。本文是背景：方案阶段的写法与落地后有出入的地方，以第 12 节和代码为准。
+>
+> 来源：三个只读调研 agent 的报告（[代码耦合与接口](research/coupling.md)、[目录与模块](research/structure.md)、[测试](research/tests.md)），加上交叉核对与取舍。调研针对抽出适配层之前的代码（ffd32ef），报告里的行号以那时为准。第 9 节的 11 项于 2026-11-19 拍板，全部按推荐执行。
 
 ## 1. 结论
 
 - **可以切干净。** 直接引用 UU 的代码集中在：核心 9 个文件、系统层 2 个、App 层 7 个，加上测试、脚本、文档。UU 专属代码约 1280 行：纯逻辑约 630 行，系统调用约 650 行。
-- **推荐切法：**
+- **切法：**
   - 核心只留中性端口。
   - UU 做成独立适配器：纯逻辑、系统调用各一个目标，外加自己的测试目标。
   - App 只有一个登记适配器的地方。
@@ -45,7 +47,7 @@
 | `Apps.swift:83-84` | 资源库排除写死 `[UURemote.bundleID]` | 排除名单改成参数，值取各适配器 bundle 的并集 |
 | `SnugSystem/WindowService.swift:221` | **隐蔽：** 系统层调 `AppList.ordered` 时顺带做了排除（已核实） | 过滤统一收到 App 层的 `AppCatalog`，系统层只排序 |
 | `TouchEvents.swift:60-75`、`TouchTap.swift:42,66` | 按进程名写死 `UURemoteServer` 认注入事件 | 改成中性匹配器；判断函数放核心，可测 |
-| `LaunchMode.swift:42,87,89` | 核心启动参数引用 `UUCheck` 的常量（已核实） | 小时上下限归 LaunchMode 自己；参数名见待拍板 5 |
+| `LaunchMode.swift:42,87,89` | 核心启动参数引用 `UUCheck` 的常量（已核实） | 小时上下限归 LaunchMode 自己；参数名见决定 5 |
 | `SnugLogDigest` | 解析「检测到 UU 连入（」和 `overlay=`、`capture=`；跨模块的字符串约定 | 见 3.5 |
 | `Package.swift:32` | `SnugCoreTests` 声明了 Fixtures 资源，而里面只有 UU 的夹具 | 资源声明随夹具挪到 UU 测试目标 |
 | `AppController`、`main.swift` | 直接创建 UU 感知器、直接调用 UU 诊断 | 改由唯一登记处 `Snug/App/Remotes.swift` 提供 |
@@ -83,12 +85,12 @@
 
 ## 4. 目标结构
 
-### 4.1 目录（推荐）
+### 4.1 目录
 
 ```
 Sources/
   SnugCore/
-    Remote/                    ← 原 Session/ 改名（待拍板 3）
+    Remote/                    ← 原 Session/ 改名（决定 3）
       RemoteAdapter.swift      ← 新：端口协议、RemoteIdentity、RemoteObservation、InjectedEventSource
       ConnectionTracker.swift  ← 含 ConnectionEvent，改吃中性观测
       SessionEpisode.swift
@@ -105,7 +107,7 @@ Sources/
 Tests/
   SnugCoreTests/               ← 不再带资源；Support/RemoteFakes.swift 放中性假观测、假适配器
   Remotes/UU/                  → 目标 RemoteUUTests：Fixtures/（4 份 ndjson）、Support/UUFixtures.swift
-  RemoteContractTests/         ← 待拍板 4
+  RemoteContractTests/         ← 决定 4
 ```
 
 以后接 RustDesk：在 `Sources/Remotes/` 下加 `RustDesk/{Logic,System}`，在 `Tests/Remotes/` 下加 `RustDesk`，`Package.swift` 加 3 个目标，`Remotes.swift` 加 1 行。核心不用动。
@@ -132,14 +134,14 @@ RemoteUUTests   → RemoteUU, SnugCore（带 Fixtures）
 ### 4.4 考虑过、没采用的方案
 
 - **在现有三个目标里各开 `UU/` 子目录：** UU 散在三处，没有完整的落脚点；「核心不依赖 UU」只能靠自觉；测试也分不了包。否决。
-- **每家只建一个目标，内部分 `Logic/`、`System/` 两个文件夹：** 目标少一个，但纯逻辑那半边没有编译器约束，只能靠 grep 防它 `import AppKit`，测试也要连带链接系统层。作为次选，见待拍板 1。
+- **每家只建一个目标，内部分 `Logic/`、`System/` 两个文件夹：** 目标少一个，但纯逻辑那半边没有编译器约束，只能靠 grep 防它 `import AppKit`，测试也要连带链接系统层。作为次选，见决定 1。
 - **单独建一个端口目标 `SnugRemote`：** 它仍要依赖 SnugCore，换不来真正的隔离，端口一共才几个文件。否决。
 
 ## 5. 适配接口
 
 ```swift
 public struct RemoteIdentity: Sendable {
-    public let logName: String                // "UU"：日志、命令行参数（待拍板 6）
+    public let logName: String                // "UU"：日志、命令行参数（决定 6）
     public let displayName: String            // "UU远程"：界面文案
     public let bundleIDs: Set<String>         // App 资源库排除
     public let injector: InjectedEventSource  // 手势只接管它注入的事件
@@ -191,7 +193,7 @@ public struct RemoteObservation: Equatable, Sendable {
 1. **未连接时**（空闲，或断开后的重连等待期）：归属给登记顺序里第一个报告在场的适配器。都不在场就保留原归属，把它这一拍的真实观测交给 `ConnectionTracker`，让断开日志带的仍是它的信号快照。
 2. **已连接时：** 归属不变，只把归属方的观测交给 `ConnectionTracker`。别家报告在场时，只在首次出现记一条日志「另有 X 报告连接，本次远程归 Y」。
 3. **重连等待期内换了一家：** 算同一次远程（resumed），屏不撤不建，控制端、推流屏、`remoteName` 改取新的归属方。会话结束（ended）时清空归属。
-4. **手势：** 接管所有已登记适配器注入的事件，取并集（待拍板 9）。
+4. **手势：** 接管所有已登记适配器注入的事件，取并集（决定 9）。
 
 **只有 UU 时：** 每拍交给 `ConnectionTracker` 的就是 UU 的观测，规则退化成现在的逻辑。要加一条测试把这一点钉住。
 
@@ -232,7 +234,7 @@ public struct RemoteObservation: Equatable, Sendable {
   - UU 原始观测到中性观测的映射：推流未知不算缺席；表格未识别不算缺席；只有覆盖窗口也算在场；推流屏只在推流时有值。
   - 身份声明。
 
-### 7.4 适配器契约测试（待拍板 4）
+### 7.4 适配器契约测试（决定 4）
 
 一个 `RemoteContractTests` 目标，每家写一个驱动，提供空闲、连入、换控制端、读不到、注入事件、本机事件这几种原始输入。参数化跑同一组断言：
 
@@ -293,24 +295,50 @@ public struct RemoteObservation: Equatable, Sendable {
    - 注释改中性：约 40 处「UU」改成「远控」，保留「UU 实测」出处。
    - 文档：`docs/how-it-works.md` 拆出中性的连接判定；新建 UU 适配文档和「接入新的远控」指南；`docs/development.md` 更新代码结构、依赖图和命令。
    - 记忆同步。
-   - 删除本过程文档。
 
 **验收：**
 - `scripts/snug check` 全绿，用例数不降，门禁全过。
 - 真机连一次 UU：Snug.log 里连入、断开、会话、建屏这几行和改动前逐字一致。
-- `remote-check uu`（或保留的 `uu-check`）全部 ✅。
+- `remote-check uu` 全部 ✅。
 
 ## 11. 三份报告的分歧与裁决
 
 | 分歧 | 各方意见 | 采纳 | 理由 |
 |---|---|---|---|
-| 每家几个目标 | 耦合：一个；结构：两个；测试：未定 | 两个（待拍板 1） | 纯逻辑与系统分层由编译器把关，跟现有分层一致；代价只是 Package.swift 多一条 |
+| 每家几个目标 | 耦合：一个；结构：两个；测试：未定 | 两个（决定 1） | 纯逻辑与系统分层由编译器把关，跟现有分层一致；代价只是 Package.swift 多一条 |
 | `SnugLogDigest` 放哪 | 耦合、结构：留核心；测试：随 UUCheck 搬到 UU（唯一使用者） | 留核心 | 它解析的是核心产出的日志。放在产出方旁边，改措辞时往返测试当场变红；搬到 UU 就成了跨模块的暗约定，正是 3.5 节的失效路径 |
 | 多适配器汇总放哪 | 耦合：新建 `Remotes.swift`；结构：`AppController` 里直接循环；测试：把编排抽进核心 | `Remotes.swift` 加核心里的归属规则 | 唯一登记处便于社区接入，也便于门禁 2；把 AppController 的整段编排抽进核心超出本次范围 |
 | 注入事件匹配的字段 | 耦合：只要进程名；结构：进程名加 userData；测试：值描述 | 只要进程名，判断函数放核心 | userData 等接 RustDesk 时再加；判断放核心是为了能测（SnugSystem 没有测试目标） |
-| 契约测试 | 耦合：等第二家；测试：现在建 | 现在建，只有 UU 一个驱动（待拍板 4） | 主人要「留口子给别人做」，契约测试就是给接入者的验收清单 |
-| 日志措辞 | 耦合：改用显示名；结构：用 logName 保持逐字不变 | 逐字不变（待拍板 6） | 大改动最可靠的验收方式就是日志逐行对照 |
-| 诊断参数 | 耦合：中性化不带名字；结构：带适配器名字；测试：二选一 | 中性化、带名字（待拍板 5） | 带名字之后接第二家不用再改参数 |
+| 契约测试 | 耦合：等第二家；测试：现在建 | 现在建，只有 UU 一个驱动（决定 4） | 主人要「留口子给别人做」，契约测试就是给接入者的验收清单 |
+| 日志措辞 | 耦合：改用显示名；结构：用 logName 保持逐字不变 | 逐字不变（决定 6） | 大改动最可靠的验收方式就是日志逐行对照 |
+| 诊断参数 | 耦合：中性化不带名字；结构：带适配器名字；测试：二选一 | 中性化、带名字（决定 5） | 带名字之后接第二家不用再改参数 |
+
+## 12. 落地结果
+
+2026-11-19 落地并合入 main。下列是相对上面方案的改动，多数来自落地后的一轮审查（5 个维度并行审，1 个核实者逐条核对：25 条发现，去重后 16 个问题，全部修复）。
+
+### 12.1 与方案不同的地方
+
+| 项 | 方案 | 落地 | 为什么 |
+| :--- | :--- | :--- | :--- |
+| 身份从哪来 | 适配器实例上的 `identity` | `RemoteAdapter` 要求静态的 `identity` 和 `init()`，实例的 `identity` 由扩展取 `Self.identity`；登记处 `Entry` 只存适配器类型 | 审查发现登记处和实例各有一份身份，可能对不上；现在只有一份，`Remotes.swift` 也不必再 import 纯逻辑目标 |
+| 资源库排除 | 排除名单改成参数，过滤收到 `AppCatalog` | 排除放进 `AppList.sorted(_:excluding:)` 和新增的 `AppList.refreshed`，`AppCatalog` 每轮刷新都经它们出列表；在跑的 App 读完窗口后再滤，和原来一致 | 只在 `AppCatalog` 里滤的话，漏调过滤测试照样全过（App 层没有测试） |
+| 日志摘要 | 解析器留核心，加往返测试 | 另加按远控归属：会话行归到前面最近一行「检测到 <远控> 连入」的那家，找不到的照旧算进来 | 会话行不带远控名，接第二家后 UU 自检会把别家的远程算成 UU 的 |
+| 观测怎么交给会话 | `sample` 交 `RemoteObservation` | 另有 `RemoteReading`（哪家加观测）；`RemoteSession.tracked` 是这一拍跟的那份 | 归属规则要知道观测来自哪家 |
+| 注入事件匹配 | `matches(executableName:)` | `matches(executablePath:)`，按路径的最后一段比 | 系统层读到的是来源进程的完整路径 |
+| 门禁 | 5 条 grep | `Package.swift` 交给 `swift package dump-package` 解析；按 `Sources/Remotes` 下的目录找每家；大小写都拦；`@testable`、`internal import` 等写法都认；纯逻辑目标只能 import Foundation、SnugCore，只依赖 SnugCore；登记以 `<家>RemoteAdapter.self` 为准 | 审查发现小写字面量、多行写法、只 import 不登记都能绕过 |
+| UUCheck 的连接检测 | 认不出连入时报需留意 | 同上，另外信号快照读不出也报需留意；推流信号全部未知时这一项照旧不出 | 只修静默失效，其余输出和抽出前一致 |
+
+### 12.2 验收
+
+- `scripts/snug check`：门禁全过，测试 445 → 471 例全绿（`SnugCoreTests` 415、`RemoteUUTests` 49、`RemoteContractTests` 7）
+- 门禁：11 个违规样本各自拦下，目标写成多行照常通过；契约测试改坏 UU 驱动后当场变红
+- 与抽出前对比：81 张界面渲染逐字节一致；`--dump-remote uu`、`--check-remote uu` 与旧 `--dump-uu`、`--check-uu` 输出逐字一致
+- 真机（UU远程 4.48.1，iPhone）：连入、会话、建屏、手势开启、放窗口、断开、重连等待、结束、撤屏 14 条日志里 13 条与之前正式版的写法逐字一致，剩下 1 条是没改动、之前没触发过的指针收回（#29）；资源库里没有 UU远程；点按、滚动、长按右键正常；`remote-check uu` 7 项全部 ✅
+
+### 12.3 本次不做（技术债）
+
+见 7.5：系统层几处判断没有测试（`CaptureLogWatcher` 的退避重启、`ControllerReader` 的结果新鲜度、`UUAccessibility` 的环检测与节点上限、`TouchTap` 的分派），要先抽成纯值类型才能测。
 
 ## 附：调研原始报告
 
@@ -318,4 +346,4 @@ public struct RemoteObservation: Equatable, Sendable {
 - [research/structure.md](research/structure.md)：目录、模块与依赖，34 条
 - [research/tests.md](research/tests.md)：测试，33 条
 
-每条都带 `文件:行号`。原始报告里的建议在上面各节已经取舍过；有冲突时以本文为准。
+每条都带 `文件:行号`（抽出前的 ffd32ef）。原始报告里的建议在上面各节已经取舍过；有冲突时以本文为准。

@@ -294,9 +294,11 @@ scripts/snug check     # 构建并运行全部测试
 scripts/snug install   # 构建、安装并打开
 ```
 
-- 代码分三层：`SnugCore`（纯逻辑）→ `SnugSystem`（系统接口）→ `Snug`（界面）
+- 代码分三层：`SnugCore`（纯逻辑）→ `SnugSystem`（系统接口）→ `Snug`（界面）；对接 UU远程 的部分是可替换的远控适配层（`Sources/Remotes`）
 - 打包、发布、启动参数与数据位置：[开发文档](docs/development.md)
 - 连接判定、窗口移动与手势翻译：[工作原理](docs/how-it-works.md)
+
+**接入其他远控**：架构已调整就绪，核心不依赖任何一家远控，接一家新的只加它自己的适配器。欢迎提 PR 接入，或 fork 后自行接入：[接入新的远控](docs/remotes/README.md) · [设计记录](docs/remote-adapter/README.md)
 
 ## 🧹 卸载
 

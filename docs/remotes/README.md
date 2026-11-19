@@ -1,6 +1,6 @@
 # 接入新的远控
 
-Snug 只对接 UU远程，但对接的部分是一层可替换的适配器：核心不认识任何一家远控，接一家新的只加它自己的适配器，核心一行不动。UU远程 的适配器是现成的样板，见 [UU远程 适配](uu.md)。
+Snug 只对接 UU远程，但对接的部分是一层可替换的适配器：核心不认识任何一家远控，接一家新的只加它自己的适配器，核心一行不动。UU远程 的适配器是现成的样板，见 [UU远程 适配](uu.md)；为什么这样切、考虑过哪些方案，见 [设计记录](../remote-adapter/README.md)。
 
 ## 分层
 
@@ -37,6 +37,11 @@ Snug 只对接 UU远程，但对接的部分是一层可替换的适配器：核
 4. **登记**：`Sources/Snug/App/Remotes.swift` import `RemoteRustDeskSystem`，`all` 加一行 `Entry(adapter: RustDeskRemoteAdapter.self, dump: …, check: …)`，`dump`、`check` 是 `--dump-remote`、`--check-remote` 的实现。登记顺序即两家同时报在场时的归属顺序
 5. **契约测试**：`Tests/RemoteContractTests/Drivers/RustDeskDriver.swift`，把空闲、读不到、连入、推流几种情形翻译成它的原始信号，经它自己的映射交出观测；放进 `drivers`
 6. **验收**：`scripts/snug check` 全绿；真机连一次，Snug.log 里连入、断开、会话几行对得上
+
+## 提交
+
+- **合进本仓库**：提 PR，写明接的是哪家远控、哪个版本，附 `scripts/snug check` 的结果和一次真机连接的 Snug.log 片段（连入到撤屏）。作者只用 UU远程，别家的真机验证靠提交者
+- **自己维护**：fork 后照上面的步骤接；MIT 许可，保留 LICENSE 里的版权声明即可
 
 ## 几家并存
 

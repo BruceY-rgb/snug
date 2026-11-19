@@ -1,6 +1,6 @@
 # 调研报告：目录、模块与依赖
 
-> 只读调研 agent 原始输出（2026-11-19），取舍见 [方案](../README.md)
+> 只读调研 agent 原始输出（2026-11-19），针对抽出适配层之前的代码（ffd32ef），行号以那时为准。取舍见 [设计记录](../README.md)
 
 ## summary
 结论：推荐方案甲。中性端口放进 SnugCore（Session/ 改名 Remote/），UU 拆成两个目标：RemoteUU（纯逻辑）和 RemoteUUSystem（系统调用），另配独立测试目标 RemoteUUTests。依赖方向是 SnugCore ← SnugSystem ← RemoteUU* ← Snug，没有环；核心认不认得某个适配器由编译器把关，App 只负责组装。

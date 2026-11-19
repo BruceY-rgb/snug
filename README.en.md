@@ -294,9 +294,11 @@ scripts/snug check     # build and run all tests
 scripts/snug install   # build, install, and launch
 ```
 
-- Three layers: `SnugCore` (pure logic) → `SnugSystem` (system interfaces) → `Snug` (UI)
+- Three layers: `SnugCore` (pure logic) → `SnugSystem` (system interfaces) → `Snug` (UI); everything tied to UU Remote lives in a swappable remote adapter layer (`Sources/Remotes`)
 - Packaging, releases, launch arguments, and data locations: [Development guide](docs/development.md) (in Chinese)
 - Connection detection, window placement, and gesture translation: [How It Works](docs/how-it-works.md) (in Chinese)
+
+**Supporting other remote-control apps**: the architecture is ready. The core depends on no particular remote app; adding one means adding only its own adapter. Pull requests that add another remote app are welcome, or fork and add your own: [Adding a remote app](docs/remotes/README.md) · [Design record](docs/remote-adapter/README.md) (in Chinese)
 
 ## 🧹 Uninstall
 

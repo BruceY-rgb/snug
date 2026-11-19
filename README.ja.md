@@ -294,9 +294,11 @@ scripts/snug check     # build and run all tests
 scripts/snug install   # build, install, and launch
 ```
 
-- 3 層構造：`SnugCore`（純粋なロジック）→ `SnugSystem`（システムインターフェース）→ `Snug`（UI）
+- 3 層構造：`SnugCore`（純粋なロジック）→ `SnugSystem`（システムインターフェース）→ `Snug`（UI）。UU远程 との連携部分は、差し替え可能なリモートアダプター層（`Sources/Remotes`）にまとめています
 - パッケージング、リリース、起動引数、データの場所：[開発ガイド](docs/development.md)（中国語）
 - 接続検知、ウィンドウ配置、ジェスチャー変換：[仕組み](docs/how-it-works.md)（中国語）
+
+**他のリモートアプリへの対応**：アーキテクチャは整備済みです。コアは特定のリモートアプリに依存せず、新たに対応するにはそのアプリ用のアダプターを追加するだけです。対応を追加する PR を歓迎します。フォークして独自に対応することもできます：[リモートアプリの追加](docs/remotes/README.md) · [設計記録](docs/remote-adapter/README.md)（中国語）
 
 ## 🧹 アンインストール
 
