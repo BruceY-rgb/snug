@@ -18,6 +18,8 @@ case .render(let target, let output):
     exit(MainActor.assumeIsolated { Renderer.run(target, output: output) } ? 0 : 1)
 case .dumpUU:
     exit(MainActor.assumeIsolated { UUDump.run() })
+case .checkUU(let hours):
+    exit(MainActor.assumeIsolated { UUCheckRun.run(hours: hours) })
 case .probeScreens(let screens):
     // 实测用：不建 AppController、不起感知器，只管实验屏。虚拟屏要在跑着的 GUI 进程里才上线
     let app = NSApplication.shared

@@ -13,6 +13,7 @@
 | `scripts/snug ship` | 发布：前置检查 → check → dist → 生成 `update.json` → 创建 GitHub Release 草稿并上传 → 公开 → 上传国内源 → 两处均从下载地址核对 |
 | `scripts/snug mirror <版本>` | 将 GitHub 上已公开的版本补传至国内源：安装包从 GitHub 下载，校验一致后上传；有应用内更新文件的版本一并补传 |
 | `scripts/snug media <文件…>` | 将 README 使用的图片与视频上传至国内源并输出地址；视频仅重新封装（不重新编码），并去除录制时间、地点等元数据 |
+| `scripts/snug uu-check [小时]` | UU远程 兼容自检（只读）：核对 Snug 依赖 UU远程 的几处，回看最近几小时（默认 4）的日志并输出报告；见下文「UU远程 兼容自检」 |
 | `scripts/snug stats` | 统计安装包下载量（只读）：GitHub Release 与国内源分别计算后相加，扣除自测；口径见下文「国内源」中的「下载量」 |
 
 **环境要求**：Xcode 与 Swift 6。
@@ -71,6 +72,16 @@
 
 App 将本机已安装的 Snug 按同样方式切块，只按字节范围从最新的包中读取本机缺少的块，因此从任何旧版本都能直接升到最新版，无需逐版本的补丁。格式与打包逻辑位于 `SnugCore/Update`，发布工具 `snug-release`（`Sources/SnugRelease`）与 App 共用同一份实现：`dist` 时打包，并照清单拼装、核对签名，通过后才交出；`ship` 时生成 `update.json`。
 
+## UU远程 兼容自检
+
+UU远程 更新后，先用手机照常连一次（切到 Snug 的屏），再运行 `scripts/snug uu-check`，数秒内输出报告。
+
+- **核对项**：UU远程 版本（对照上次核对的版本）；后台进程 `UURemoteServer`；抓屏与编码框架（ScreenCaptureKit、VideoToolbox）是否仍被链接；推流日志能否认出推流的开始、停止与所推的屏；Snug 连入时推流信号是否亮起；能否认出控制端
+- **判定**：❌ 问题 · ⚠️ 需留意 · ✅ 正常 · ℹ️ 待下次核对；有问题时以非零状态退出。判定位于 `SnugCore/Diagnostics/UUCheck`，推流日志按正式运行的解析与状态回放，Snug 日志的摘要位于 `SnugLogDigest`
+- **取证材料**：`~/Library/Logs/Snug-uu-check/`，每次覆盖：报告、UU 推流日志、上一次远程前后 `UURemoteServer` 的全部日志、该时段的 Snug 日志、UU 界面树、链接情况与当前屏幕
+- **核对完成**：报告无问题且手机实测无误后，将 `UUCheck.verifiedVersion` 改为新版本
+- **范围**：只读日志与界面，不操作 UU远程；触控、新连接先推主屏需手机实测，暂未纳入
+
 ## 代码结构
 
 代码分为三层，依赖单向向下：
@@ -113,6 +124,7 @@ SNUG_WRITE_TOKENS=1 swift test --filter DesignTokensTests
 | `--render-<界面> <目录>` | 将界面渲染为 PNG：`settings` / `welcome` / `about` / `legacy` / `menu` / `screens` / `library` / `update`（不启动监控，不改动屏幕）。`screens` 是 Snug 屏上的面板，覆盖手机竖横、平板竖横；`library` 是电脑屏的 App 资源库窗口 |
 | `--preview-screens` | 正常启动，但不等待连接即创建屏幕列表中开着的屏，无需控制端即可查看屏上的列表（**会真实创建屏幕**；设了主屏的同样会设） |
 | `--dump-uu` | 打印从 UU远程 读取到的界面（文字、表格与行）、认出的控制端与当前屏幕 |
+| `--check-uu [小时]` | UU远程 兼容自检（`scripts/snug uu-check` 调用）：输出报告，原始材料写入 `~/Library/Logs/Snug-uu-check/`；有问题时以非零状态退出 |
 | `--probe-screens <规格…>` | 实测用（多屏的 V1～V12，结论见记忆 project-multi-screen）：每份规格建一块实验屏，打印各档模式与 2 倍是否可用，按 Ctrl-C 撤屏并还原排布。规格是逗号分隔的 `键=值`：`modes=宽x高+…`（必填）、`name`、`serial`（默认用 999000001 起的实验身份）、`cap=像素宽x像素高`、`pattern=on\|off`（校准图）、`main=on`（设为主屏，最多一块）。**会真实创建屏幕**，测试时随测随撤，免得指针跑到看不见的屏上 |
 | `--set-mode <屏幕编号> <宽> <高>` | 辅助进程模式：将一块 Snug 的屏切换至该档的 2 倍模式后立即退出（供主程序内部调用；高由主程序按型号的比例算好传入） |
 | `--restore-mode <屏幕编号> <模式编号> <宽> <高> <像素宽> <像素高> <刷新率> session\|permanent` | 辅助进程模式：将一块屏幕设回该模式后立即退出，只对当前登录生效或连同永久配置（供主程序内部调用：创建、移除 Snug 的屏时被系统改变模式的屏幕） |
