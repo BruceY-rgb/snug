@@ -77,7 +77,7 @@ App 将本机已安装的 Snug 按同样方式切块，只按字节范围从最�
 UU远程 更新后，先用手机照常连一次（切到 Snug 的屏），再运行 `scripts/snug uu-check`，数秒内输出报告。
 
 - **核对项**：UU远程 版本（对照上次核对的版本）；后台进程 `UURemoteServer`；抓屏与编码框架（ScreenCaptureKit、VideoToolbox）是否仍被链接；推流日志能否认出推流的开始、停止与所推的屏；Snug 连入时推流信号是否亮起；能否认出控制端
-- **判定**：❌ 问题 · ⚠️ 需留意 · ✅ 正常 · ℹ️ 待下次核对；有问题时以非零状态退出。判定位于 `SnugCore/Diagnostics/UUCheck`，推流日志按正式运行的解析与状态回放，Snug 日志的摘要位于 `SnugLogDigest`
+- **判定**：❌ 问题 · ⚠️ 需留意 · ✅ 正常 · ℹ️ 待下次核对；有问题时以非零状态退出。判定位于 `SnugCore/Diagnostics/UUCheck`，推流日志按正式运行的解析与状态回放，Snug 日志的摘要位于 `SnugLogDigest`。只核对此刻的 `UURemoteServer` 进程：UU远程 更新即换进程，更新前的远程不计入
 - **取证材料**：`~/Library/Logs/Snug-uu-check/`，每次覆盖：报告、UU 推流日志、上一次远程前后 `UURemoteServer` 的全部日志、该时段的 Snug 日志、UU 界面树、链接情况与当前屏幕
 - **核对完成**：报告无问题且手机实测无误后，将 `UUCheck.verifiedVersion` 改为新版本
 - **范围**：只读日志与界面，不操作 UU远程；触控、新连接先推主屏需手机实测，暂未纳入

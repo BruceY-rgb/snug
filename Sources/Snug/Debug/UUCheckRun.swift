@@ -50,9 +50,12 @@ enum UUCheckRun {
             files["uu-ax-tree.txt"] = windows.map { UUDump.treeLines($0).joined(separator: "\n") } ?? "读不到（UU 没有窗口、没响应，或界面超出遍历上限）"
         }
         files["displays.txt"] = UUDump.displayLines().joined(separator: "\n")
+        let onlineSnug = Set((Screens.online() ?? []).filter { CGDisplayVendorNumber($0) == ScreenSpec.vendorID })
+        let server = UURemoteApp.serverPID().map { UUCheck.Server(pid: $0, start: processStart($0)) }
 
-        let facts = UUCheck.Facts(hours: hours, version: version, appRunning: pid != nil, serverRunning: UURemoteApp.serverPID() != nil,
-                                  serverExecutables: scan.servers, linkers: scan.linkers, capture: capture, snug: snug, controllersNow: table)
+        let facts = UUCheck.Facts(hours: hours, since: since, version: version, appRunning: pid != nil, server: server,
+                                  serverExecutables: scan.servers, linkers: scan.linkers, capture: capture, snugLog: snugLines.map(String.init),
+                                  onlineSnugDisplays: onlineSnug, controllersNow: table)
         let items = UUCheck.evaluate(facts)
         let report = UUCheck.report(items, hours: hours, at: now)
         files["report.txt"] = report
@@ -78,6 +81,14 @@ enum UUCheckRun {
             for (name, needle) in needles where data.range(of: needle) != nil { linkers[name, default: []].append(path) }
         }
         return (servers.sorted(), linkers.mapValues { $0.sorted() })
+    }
+
+    /// 进程启动的时刻（内核记的）；读不到为 nil
+    private static func processStart(_ pid: pid_t) -> Date? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(info.pbi_start_tvsec) + TimeInterval(info.pbi_start_tvusec) / 1_000_000)
     }
 
     private static func isMachO(_ data: Data) -> Bool {

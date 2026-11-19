@@ -35,34 +35,74 @@ public enum UUCheck {
         public var detail: String
     }
 
+    /// 此刻的 UURemoteServer 进程
+    public struct Server: Equatable, Sendable {
+        public var pid: pid_t
+        /// 进程启动的时刻；读不到为 nil
+        public var start: Date?
+
+        public init(pid: pid_t, start: Date?) {
+            self.pid = pid
+            self.start = start
+        }
+    }
+
     /// App 层收集到的事实
     public struct Facts: Sendable {
         public var hours: Int
+        /// 回看的起点（此刻往前 hours 小时）
+        public var since: Date
         /// UU远程 的版本；没装为 nil
         public var version: String?
         public var appRunning: Bool
-        public var serverRunning: Bool
+        /// 没在运行为 nil
+        public var server: Server?
         /// 包里叫 UURemoteServer 的程序（包内路径）
         public var serverExecutables: [String]
         /// 框架名 → 链接它的程序（包内路径）
         public var linkers: [String: [String]]
         /// 回看时间内 UURemoteServer 的推流事件；系统日志读不出来为 nil
         public var capture: [CaptureLogRecord]?
-        public var snug: SnugLogDigest
+        /// Snug 日志的原文（滚动过的旧日志在前）
+        public var snugLog: [String]
+        /// 此刻在线的 Snug 的屏：设为主屏的那块常驻，建屏的日志可能早在回看之前
+        public var onlineSnugDisplays: Set<DisplayID>
         /// 此刻 UU 被控页的控制端表格；没读（没有辅助功能权限、UU 没在运行）为 nil
         public var controllersNow: ControllerTable?
 
-        public init(hours: Int, version: String?, appRunning: Bool, serverRunning: Bool, serverExecutables: [String],
-                    linkers: [String: [String]], capture: [CaptureLogRecord]?, snug: SnugLogDigest, controllersNow: ControllerTable?) {
+        public init(hours: Int, since: Date, version: String?, appRunning: Bool, server: Server?, serverExecutables: [String],
+                    linkers: [String: [String]], capture: [CaptureLogRecord]?, snugLog: [String], onlineSnugDisplays: Set<DisplayID>,
+                    controllersNow: ControllerTable?) {
             self.hours = hours
+            self.since = since
             self.version = version
             self.appRunning = appRunning
-            self.serverRunning = serverRunning
+            self.server = server
             self.serverExecutables = serverExecutables
             self.linkers = linkers
             self.capture = capture
-            self.snug = snug
+            self.snugLog = snugLog
+            self.onlineSnugDisplays = onlineSnugDisplays
             self.controllersNow = controllersNow
+        }
+    }
+
+    /// 实际拿来核对的那一段：只认此刻的 UURemoteServer 进程。UU 一更新就换进程，更新前的远程不能替新版本作证
+    /// （正式运行也只认当前进程的推流记录，见 CaptureSessionState.resumed）
+    struct Scope {
+        /// 此刻的进程打的推流记录；日志读不出来为 nil
+        var capture: [CaptureLogRecord]?
+        /// 从核对起点之后的 Snug 日志摘出来的，屏编号并上此刻在线的 Snug 屏
+        var snug: SnugLogDigest
+        /// 「最近 4 小时」或「UURemoteServer 09:30 启动以来」
+        var window: String
+
+        init(_ f: Facts) {
+            let restarted = f.server?.start.flatMap { $0 > f.since ? $0 : nil }
+            window = restarted.map { "\(UURemote.serverProcess) \(UUCheck.clock($0)) 启动以来" } ?? "最近 \(f.hours) 小时"
+            capture = f.capture.map { records in f.server.map { s in records.filter { $0.processID == s.pid } } ?? records }
+            snug = SnugLogDigest(lines: f.snugLog, since: restarted ?? f.since)
+            snug.snugDisplays.formUnion(f.onlineSnugDisplays)
         }
     }
 
@@ -70,14 +110,22 @@ public enum UUCheck {
         guard let version = facts.version else {
             return [Item(status: .fail, title: "UU远程", detail: "没装（按 \(UURemote.bundleID) 找不到），其余各项无从核对")]
         }
+        let scope = Scope(facts)
         let note = version == verifiedVersion ? "即上次核对的版本" : "上次核对的是 \(verifiedVersion)"
-        var items = [Item(status: .ok, title: "UU远程", detail: "版本 \(version)（\(note)）")]
+        var items = [Item(status: .ok, title: "UU远程", detail: "版本 \(version)（\(note)）；核对范围：\(scope.window)")]
         items.append(process(facts))
         items.append(frameworks(facts))
-        items += capture(facts)
-        if let item = detection(facts) { items.append(item) }
-        if let item = controllers(facts) { items.append(item) }
+        items += capture(scope)
+        if let item = detection(scope.snug) { items.append(item) }
+        if let item = controllers(scope.snug, now: facts.controllersNow) { items.append(item) }
         return items
+    }
+
+    static func clock(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
     }
 
     /// 报告正文：标题、结论、逐项
@@ -101,7 +149,7 @@ public enum UUCheck {
         }
         let paths = f.serverExecutables.joined(separator: "、")
         guard f.appRunning else { return Item(status: .warn, title: "后台进程", detail: "包里有 \(paths)；UU远程 没在运行，打开后再用手机连一次") }
-        guard f.serverRunning else { return Item(status: .warn, title: "后台进程", detail: "包里有 \(paths)，但没在运行：远程时由它推流、注入操作") }
+        guard f.server != nil else { return Item(status: .warn, title: "后台进程", detail: "包里有 \(paths)，但没在运行：远程时由它推流、注入操作") }
         return Item(status: .ok, title: "后台进程", detail: "\(name) 在运行（\(paths)），手势按它认操作来源")
     }
 
@@ -121,8 +169,8 @@ public enum UUCheck {
     }
 
     /// 推流日志能不能认出推流的开始，以及推的是哪块屏
-    private static func capture(_ f: Facts) -> [Item] {
-        guard let records = f.capture else {
+    private static func capture(_ scope: Scope) -> [Item] {
+        guard let records = scope.capture else {
             return [Item(status: .warn, title: "推流日志", detail: "读不出系统日志（log show 失败），推流相关各项无从核对")]
         }
         // 照正式运行的方式回放：每次推流开始时，此刻认定在推哪块屏
@@ -137,10 +185,10 @@ public enum UUCheck {
             default: break
             }
         }
-        let sessions = f.snug.sessionStarts
+        let sessions = scope.snug.sessionStarts
         guard !starts.isEmpty else {
             return sessions.isEmpty
-                ? [Item(status: .warn, title: "推流日志", detail: "最近 \(f.hours) 小时没有远程，无从核对：用手机连一次（切到 Snug 的屏）再跑")]
+                ? [Item(status: .warn, title: "推流日志", detail: "\(scope.window)没有远程，无从核对：用手机连一次（切到 Snug 的屏）再跑")]
                 : [Item(status: .fail, title: "推流日志",
                         detail: "Snug 记到 \(sessions.count) 次远程，UU 日志里却没有一次可认的推流开始：写法可能变了，连接检测只剩提示窗口与控制端表格（原始日志见取证材料）")]
         }
@@ -149,7 +197,7 @@ public enum UUCheck {
         let log = matched < sessions.count
             ? Item(status: .warn, title: "推流日志", detail: "\(counts)；Snug 记到的 \(sessions.count) 次远程里 \(matched) 次对得上推流开始")
             : Item(status: .ok, title: "推流日志", detail: sessions.isEmpty ? counts : "\(counts)；Snug 记到的 \(sessions.count) 次远程都对得上")
-        return [log, streamedDisplays(starts.compactMap(\.display), snug: f.snug.snugDisplays)]
+        return [log, streamedDisplays(starts.compactMap(\.display), snug: scope.snug.snugDisplays)]
     }
 
     private static func streamedDisplays(_ displays: [DisplayID], snug: Set<DisplayID>) -> Item {
@@ -168,8 +216,8 @@ public enum UUCheck {
     }
 
     /// Snug 连入时三路信号亮了哪几路。推流信号「未知」是 Snug 刚启动、日志监听还没回看完，不算 UU 的事
-    private static func detection(_ f: Facts) -> Item? {
-        let all = f.snug.detections
+    private static func detection(_ snug: SnugLogDigest) -> Item? {
+        let all = snug.detections
         let known = all.filter { $0.capture != nil }
         guard !known.isEmpty else { return nil }
         let lit = known.filter { $0.capture == true }.count
@@ -187,18 +235,18 @@ public enum UUCheck {
     }
 
     /// 控制端名字：这段时间认出过哪些，加上此刻读到的表格
-    private static func controllers(_ f: Facts) -> Item? {
-        let now: String = switch f.controllersNow {
+    private static func controllers(_ snug: SnugLogDigest, now table: ControllerTable?) -> Item? {
+        let now: String = switch table {
         case .shown(let names): "此刻：\(names.joined(separator: "、"))"
-        case .unrecognized: "此刻不在远程（被控页的表只在远程时出现）"
+        case .unrecognized: "此刻界面上没有控制端（不在远程，或 UU 停在别的页面）"
         case .unreadable: "此刻读不到 UU 的界面"
         case nil: "此刻没读界面（没有辅助功能权限，或 UU 没在运行）"
         }
-        let sessions = f.snug.sessionStarts.count
-        if !f.snug.controllers.isEmpty {
-            return Item(status: .ok, title: "控制端", detail: "认出 \(f.snug.controllers.joined(separator: "、"))；\(now)")
+        let sessions = snug.sessionStarts.count
+        if !snug.controllers.isEmpty {
+            return Item(status: .ok, title: "控制端", detail: "认出 \(snug.controllers.joined(separator: "、"))；\(now)")
         }
-        if case .shown = f.controllersNow { return Item(status: .ok, title: "控制端", detail: now) }
+        if case .shown = table { return Item(status: .ok, title: "控制端", detail: now) }
         guard sessions > 0 else { return nil }
         return Item(status: .warn, title: "控制端",
                     detail: "\(sessions) 次远程都没认出控制端：UU 被控页可能改了版（UU 主窗口一直关着时也会这样）；\(now)")
