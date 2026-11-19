@@ -1,12 +1,14 @@
 ---
 name: project-phone-screen
-description: 手机屏实测坑（代码注释和 docs 没写的）：UU 的事件形态与选屏、推流规律，真机自测与只从访达重开正式版，ColorSync，屏幕适配实测，App 资源库边界
+description: 手机屏实测坑（代码注释和 docs 没写的）：UU 更新先跑 uu-check；UU 的事件形态与选屏、推流规律，真机自测与只从访达重开正式版，ColorSync，屏幕适配实测，App 资源库边界
 metadata:
   node_type: memory
   type: project
   originSessionId: f97709de-705a-489b-bb7a-7353b1fba51c
   modified: 2026-11-16T06:36:15.569Z
 ---
+
+**UU 更新后先跑 `scripts/snug uu-check`**（11-19 起）：几秒出报告，原始材料在 `~/Library/Logs/Snug-uu-check/`，不再一步步猜；核对项与用法见 docs/development.md「UU远程 兼容自检」，核对完改 `UUCheck.verifiedVersion`。
 
 手机屏的实测结论大多已经写在代码注释和 `docs/how-it-works.md` 里：220ppi 物理尺寸、帮手进程切模式、加屏前给窗口拍快照、尺寸 → 位置 → 尺寸的设置顺序、先退出原生全屏、重放事件打标记、事件监听跑在独立线程等。改这些代码前先读注释，别回退。这里只留仓库里没写的。
 
