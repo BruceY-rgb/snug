@@ -182,4 +182,10 @@ struct UUCheckTests {
         #expect(item("控制端", in: live)?.status == .ok)
         #expect(item("控制端", in: live)?.detail == "此刻：iPhone")
     }
+
+    @Test("旧的诊断参数 --dump-uu、--check-uu 不留别名（改为 --dump-remote uu、--check-remote uu）")
+    func oldFlagsGone() {
+        #expect(throws: LaunchModeError.unknownFlag("--dump-uu")) { try LaunchMode.parse(["--dump-uu"]) }
+        #expect(throws: LaunchModeError.unknownFlag("--check-uu")) { try LaunchMode.parse(["--check-uu"]) }
+    }
 }

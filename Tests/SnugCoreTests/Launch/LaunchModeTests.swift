@@ -64,11 +64,10 @@ struct LaunchModeTests {
         #expect(try LaunchMode.parse(ModeTarget.hiDPI(width: 540, height: 1170).arguments(display: 9)) == .setMode(display: 9, to: .hiDPI(width: 540, height: 1170)))
     }
 
-    @Test("--dump-remote <远控>、--preview-screens；旧的 --preview-phone、--dump-uu 不认")
+    @Test("--dump-remote <远控>、--preview-screens；旧的 --preview-phone 不认")
     func flags() throws {
         #expect(try LaunchMode.parse(["--dump-remote", "甲"]) == .dumpRemote("甲"))
         #expect(throws: LaunchModeError.missingValue("--dump-remote")) { try LaunchMode.parse(["--dump-remote"]) }
-        #expect(throws: LaunchModeError.unknownFlag("--dump-uu")) { try LaunchMode.parse(["--dump-uu"]) }
         #expect(try LaunchMode.parse(["--preview-screens"]) == .previewScreens)
         #expect(throws: LaunchModeError.self) { try LaunchMode.parse(["--preview-phone"]) }
     }

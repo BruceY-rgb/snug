@@ -34,7 +34,7 @@ usage() {
   cat <<'USAGE'
 用法：scripts/snug <命令>
 
-  check     构建全部产物，跑全部测试（门禁）
+  check     先查远控适配层的边界，再构建全部产物、跑全部测试（门禁）
   app       打 build/Snug.app 并签名：有 Developer ID 证书就用它，没有就 ad-hoc
   install   打 App，装进「应用程序」并打开（先正常退出正在跑的 Snug，窗口会先放回原处）
   dist      打可分发的安装包 dist/<版本>/Snug-<版本>.dmg：Developer ID 签名，App 和 dmg 各自公证、钉票据；
@@ -407,12 +407,15 @@ check_remote_boundaries() {
   # @testable、@preconcurrency、internal import、import struct 这些写法都算 import
   local import_of='(^|[^[:alnum:]_])import[[:space:]]+((typealias|struct|class|enum|protocol|let|var|func)[[:space:]]+)?'
 
-  bad="$(grep -rniE 'uu' Sources/SnugCore Sources/SnugSystem | grep -vE "$comment" | grep -viE 'uuid' || true)"
-  [[ -z "$bad" ]] || die "核心、系统层的代码里出现了 UU（大小写都算，只许在注释里写明出处）：\n$bad"
-  bad="$(grep -rnE "${import_of}Remote[A-Z]" Sources/SnugCore Sources/SnugSystem Sources/Snug Sources/SnugRelease | grep -vE "$comment" | grep -v "^$registry:" || true)"
-  [[ -z "$bad" ]] || die "只有 $registry 能 import 适配器：\n$bad"
-  bad="$({ grep -rniE 'uuremote|netease' Tests/SnugCoreTests; grep -rnE "\\bUU([A-HJ-Z]|I[^D])|ControllerTable|CaptureLog|CaptureSession|${import_of}Remote[A-Z]" Tests/SnugCoreTests; } | grep -vE "$comment" || true)"
-  [[ -z "$bad" ]] || die "核心测试里出现了适配器的东西（核心测试只用假远控）：\n$bad"
+  # 各家远控的名字取自 Sources/Remotes 下的目录名，接一家新的不用改这里。UUID 里的 uu 不算
+  local -a families=(Sources/Remotes/*(/N:t))
+  if (( ${#families} )); then
+    bad="$(grep -rniE "${(j:|:)families}" Sources/SnugCore Sources/SnugSystem Tests/SnugCoreTests | grep -vE "$comment" \
+      | awk -v names="${(Lj:|:)families}" '{ s = tolower($0); sub(/^[^:]+:[0-9]+:/, "", s); gsub(/uuid/, "", s); if (s ~ names) print }' || true)"
+    [[ -z "$bad" ]] || die "核心、系统层、核心测试的代码里出现了远控的名字（${(j:、:)families}，大小写都算；出处写在单独一行的注释里）：\n$bad"
+  fi
+  bad="$(grep -rnE "${import_of}Remote[A-Z]" Sources/SnugCore Sources/SnugSystem Sources/Snug Sources/SnugRelease Tests/SnugCoreTests | grep -vE "$comment" | grep -v "^$registry:" || true)"
+  [[ -z "$bad" ]] || die "只有 $registry 能 import 适配器（核心测试只用假远控）：\n$bad"
   bad="$(grep -rnE "${import_of}[A-Za-z]" Sources/Remotes/*/Logic(N) /dev/null | grep -vE "$comment" | grep -vE "import[[:space:]]+(Foundation|SnugCore)[[:space:]]*$" || true)"
   [[ -z "$bad" ]] || die "适配器的纯逻辑（Logic）只能 import Foundation 和 SnugCore：\n$bad"
 
