@@ -35,7 +35,7 @@ package enum UUCheckRun {
         }
 
         let snugLines = readSnugLog()
-        let snug = SnugLogDigest(lines: snugLines, since: since)
+        let snug = SnugLogDigest(lines: snugLines, since: since, remote: UURemote.identity.logName)
         files["snug.log"] = SnugLogDigest.recent(snugLines, since: since).joined(separator: "\n")
         if let start = snug.sessionStarts.last {
             let end = min(snug.sessionEnds.first { $0 > start }.map { $0 + 15 } ?? now, start + sessionSpan)

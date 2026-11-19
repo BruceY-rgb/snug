@@ -30,17 +30,45 @@ private func at(_ s: String) -> Date {
 struct SnugLogDigestTests {
     let lines = sample.split(separator: "\n")
 
-    @Test("远程开始与结束、连入时的信号、认出的控制端（读不到名字的不算）、Snug 的屏的编号")
+    @Test("远程开始与结束、连入时的信号、认出的控制端（读不到名字的不算）、Snug 的屏的编号；只摘这一家的")
     func digest() {
-        let d = SnugLogDigest(lines: lines, since: .distantPast)
+        let d = SnugLogDigest(lines: lines, since: .distantPast, remote: "甲")
         #expect(d.sessionStarts == [at("20:00:46.003")])
-        #expect(d.sessionEnds == [at("20:02:28.000"), at("20:05:00.100")])
-        #expect(d.detections == [
-            .init(date: at("20:00:46.003"), remote: "甲", evidence: "信号=一"),
-            .init(date: at("20:05:00.000"), remote: "乙", evidence: "信号=二 控制端=iPhone"),
-        ])
+        #expect(d.sessionEnds == [at("20:02:28.000")])
+        #expect(d.detections == [.init(date: at("20:00:46.003"), evidence: "信号=一")])
         #expect(d.controllers == ["iPhone", "iPad (第 10 代)"])
         #expect(d.snugDisplays == [366, 367])
+
+        let other = SnugLogDigest(lines: lines, since: .distantPast, remote: "乙")
+        #expect(other.sessionStarts.isEmpty)
+        #expect(other.sessionEnds == [at("20:05:00.100")])
+        #expect(other.detections == [.init(date: at("20:05:00.000"), evidence: "信号=二 控制端=iPhone")])
+        #expect(other.controllers.isEmpty)
+        #expect(other.snugDisplays == [366, 367])
+    }
+
+    @Test("会话行归到前面最近一行连入的那家：等待期里换了一家，之后的控制端、结束归新的一家；前面找不到连入的照旧算进来")
+    func attribution() {
+        let text = [
+            "[2026-11-18 21:00:00.000] [info] 会话：控制端变为 旧日志里的设备",
+            "[2026-11-18 21:00:01.000] [info] \(ConnectionTracker.logLine(.connected(controllers: []), remote: "甲", evidence: "一", sincePresent: 0, quietLeft: nil))",
+            "[2026-11-18 21:00:01.000] [info] \(SessionTransition.began(controllers: ["iPhone"]).logLine)",
+            "[2026-11-18 21:00:05.000] [info] \(SessionTransition.interrupted.logLine)",
+            "[2026-11-18 21:00:09.000] [info] \(ConnectionTracker.logLine(.connected(controllers: []), remote: "乙", evidence: "二", sincePresent: 0, quietLeft: nil))",
+            "[2026-11-18 21:00:09.000] [info] \(SessionTransition.resumed(controllers: ["iPad"]).logLine)",
+            "[2026-11-18 21:00:40.000] [info] \(SessionTransition.ended.logLine)",
+        ]
+        let jia = SnugLogDigest(lines: text, since: .distantPast, remote: "甲")
+        #expect(jia.controllers == ["旧日志里的设备", "iPhone"])
+        #expect(jia.sessionStarts == [at("21:00:01.000")])
+        #expect(jia.sessionEnds.isEmpty)
+        let yi = SnugLogDigest(lines: text, since: .distantPast, remote: "乙")
+        #expect(yi.controllers == ["旧日志里的设备", "iPad"])
+        #expect(yi.sessionStarts.isEmpty)
+        #expect(yi.sessionEnds == [at("21:00:40.000")])
+        // since 之前的连入只用来认归属：起点落在乙接手之后，结束仍归乙
+        #expect(SnugLogDigest(lines: text, since: at("21:00:30.000"), remote: "乙").sessionEnds == [at("21:00:40.000")])
+        #expect(SnugLogDigest(lines: text, since: at("21:00:30.000"), remote: "甲").sessionEnds.isEmpty)
     }
 
     @Test("往返：会话和连入的日志行由产出方的 logLine 生成，经日志文件写出再读回，摘要认得出")
@@ -60,8 +88,8 @@ struct SnugLogDigestTests {
         ]
         for (i, message) in messages.enumerated() { sink.write(.info, message, at: start + Double(i)) }
         sink.flush()
-        let d = SnugLogDigest(lines: try String(contentsOf: url, encoding: .utf8).split(separator: "\n"), since: .distantPast)
-        #expect(d.detections == [.init(date: start, remote: "甲", evidence: "信号=一 控制端=未识别")])
+        let d = SnugLogDigest(lines: try String(contentsOf: url, encoding: .utf8).split(separator: "\n"), since: .distantPast, remote: "甲")
+        #expect(d.detections == [.init(date: start, evidence: "信号=一 控制端=未识别")])
         #expect(d.sessionStarts == [start + 1])
         #expect(d.controllers == ["iPhone", "iPad", "MacBook Pro"])
         #expect(d.sessionEnds == [start + 5, start + 6])
@@ -69,11 +97,11 @@ struct SnugLogDigestTests {
 
     @Test("since 之前的行不算")
     func since() {
-        let d = SnugLogDigest(lines: lines, since: at("20:02:00.000"))
+        let d = SnugLogDigest(lines: lines, since: at("20:02:00.000"), remote: "甲")
         #expect(d.sessionStarts.isEmpty)
         #expect(d.controllers.isEmpty)
         #expect(d.snugDisplays == [367])
-        #expect(d.sessionEnds == [at("20:02:28.000"), at("20:05:00.100")])
+        #expect(d.sessionEnds == [at("20:02:28.000")])
     }
 
     @Test("取证用的一段：从 since 起，没有时间的续行跟着上一行走")

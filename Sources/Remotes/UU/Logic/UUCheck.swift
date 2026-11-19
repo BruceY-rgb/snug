@@ -12,8 +12,6 @@ package enum UUCheck {
     package static let captureFramework = "ScreenCaptureKit"
     /// UU 用它编码：编码会话的新建与结束用来判断推流中途是不是重启
     package static let encoderFramework = "VideoToolbox"
-    package static let defaultHours = 4
-    package static let maxHours = 72
     /// Snug 记到的远程开始，前后这么久内 UU 日志里有推流开始，就算对上
     static let matchWindow: TimeInterval = 15
 
@@ -48,7 +46,7 @@ package enum UUCheck {
         }
     }
 
-    /// App 层收集到的事实
+    /// 系统部分（UUCheckRun）收集到的事实
     package struct Facts: Sendable {
         package var hours: Int
         /// 回看的起点（此刻往前 hours 小时）
@@ -102,7 +100,7 @@ package enum UUCheck {
             let restarted = f.server?.start.flatMap { $0 > f.since ? $0 : nil }
             window = restarted.map { "\(UURemote.serverProcess) \(UUCheck.clock($0)) 启动以来" } ?? "最近 \(f.hours) 小时"
             capture = f.capture.map { records in f.server.map { s in records.filter { $0.processID == s.pid } } ?? records }
-            snug = SnugLogDigest(lines: f.snugLog, since: restarted ?? f.since)
+            snug = SnugLogDigest(lines: f.snugLog, since: restarted ?? f.since, remote: UURemote.identity.logName)
             snug.snugDisplays.formUnion(f.onlineSnugDisplays)
         }
     }
@@ -219,7 +217,7 @@ package enum UUCheck {
     /// Snug 连入时三路信号亮了哪几路。推流信号「未知」是 Snug 刚启动、日志监听还没回看完，不算 UU 的事。
     /// 远程过、日志里却一次连入都认不出，多半是 Snug 自己的日志写法改了：报出来，不悄悄略过这一项
     private static func detection(_ snug: SnugLogDigest) -> Item? {
-        let all = snug.detections.filter { $0.remote == UURemote.identity.logName }
+        let all = snug.detections
         let logged = all.compactMap { UUSignals.logged($0.evidence) }
         let sessions = snug.sessionStarts.count
         if all.isEmpty {
@@ -235,8 +233,8 @@ package enum UUCheck {
         let extra = "提示窗口 \(overlay) 次" + (unknown > 0 ? "；另有 \(unknown) 次连入时日志监听尚未就绪，不计" : "")
             + (unreadable > 0 ? "；\(unreadable) 次连入的信号快照读不出" : "")
         if known.isEmpty {
-            return Item(status: unreadable > 0 ? .warn : .info, title: "连接检测",
-                        detail: "\(all.count) 次连入都看不出推流信号（\(extra)）")
+            guard unreadable > 0 else { return nil }
+            return Item(status: .warn, title: "连接检测", detail: "\(all.count) 次连入都看不出推流信号（\(extra)）")
         }
         if lit == 0 {
             return Item(status: .fail, title: "连接检测",

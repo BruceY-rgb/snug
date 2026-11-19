@@ -141,14 +141,14 @@ struct UUCheckTests {
         #expect(item("推流日志", in: idle)?.detail.hasPrefix("UURemoteServer") == true)
     }
 
-    @Test("连接检测：推流信号未知的连入不计，全都未知时如实说；一次都没亮是问题，亮了一部分需留意")
+    @Test("连接检测：推流信号未知的连入不计；一次都没亮是问题，亮了一部分需留意")
     func detection() throws {
         let capture = try records("2257")
         func status(_ values: [Bool?]) -> UUCheck.Status? {
             item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: snugLog(captures: values))))?.status
         }
         #expect(status([true, nil]) == .ok)
-        #expect(status([nil]) == .info)
+        #expect(status([nil]) == nil)
         #expect(status([false, nil]) == .fail)
         #expect(status([true, false]) == .warn)
     }
@@ -160,8 +160,18 @@ struct UUCheckTests {
         #expect(item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: noDetections)))?.status == .warn)
         let garbled = snugLog(captures: []) + [logLine(remoteStart, "检测到 UU 连入（信号=改了写法 距上次在场 0.00s）")]
         #expect(item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: garbled)))?.status == .warn)
-        let otherRemote = snugLog(captures: []) + [logLine(remoteStart, "检测到 甲 连入（overlay=否 控制端=未识别 capture=是 距上次在场 0.00s）")]
-        #expect(item("连接检测", in: UUCheck.evaluate(facts(capture: capture, snug: otherRemote)))?.status == .warn)
+    }
+
+    @Test("别家远控的远程不算 UU 的：连入、会话、控制端都归那一家，UU 的连接检测、控制端两项不出")
+    func otherRemoteNotCounted() throws {
+        let other = [
+            logLine(remoteStart, ConnectionTracker.logLine(.connected(controllers: []), remote: "甲", evidence: "信号=一", sincePresent: 0, quietLeft: nil)),
+            logLine(remoteStart, SessionTransition.began(controllers: ["甲的设备"]).logLine),
+        ]
+        let items = UUCheck.evaluate(facts(capture: try records("2257"), snug: other))
+        #expect(item("连接检测", in: items) == nil)
+        #expect(item("控制端", in: items) == nil)
+        #expect(item("推流日志", in: items)?.status == .ok)
     }
 
     @Test("控制端：远程过却一次都没认出需留意；此刻表上有名字也算认出")
