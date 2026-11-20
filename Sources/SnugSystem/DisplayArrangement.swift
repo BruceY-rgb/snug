@@ -29,9 +29,10 @@ public final class DisplayArrangementService: DisplayArrangement {
         return error == .success
     }
 
-    /// 每块在线屏此刻的原点（全局坐标，左上原点）
+    /// 每块在线屏此刻的原点（全局坐标，左上原点）。不含镜像组里的从属屏（见 Screens.standalone）：设主屏、摆回时
+    /// 设了它的原点会把它踢出镜像组；它和主控屏原点相同，留着还会让「原点在 (0, 0) 的那块」认成它
     nonisolated static func origins() -> [DisplayID: CGPoint] {
-        Dictionary(uniqueKeysWithValues: (Screens.online() ?? []).map { ($0, CGDisplayBounds($0).origin) })
+        Dictionary(uniqueKeysWithValues: (Screens.standalone() ?? []).map { ($0, CGDisplayBounds($0).origin) })
     }
 
     private nonisolated static func configure(_ targets: [DisplayID: CGPoint]) -> CGError {
