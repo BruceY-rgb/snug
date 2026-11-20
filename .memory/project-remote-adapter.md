@@ -11,6 +11,7 @@ metadata:
 - **设计记录不删**（主人 11-19）：给之后来适配的人看，不按「合并前删过程文档」的习惯处理（见 [[project-release]]）
 - **约定**：每家两个目标 `Remote<家>`（纯逻辑，只 import Foundation、SnugCore）+ `Remote<家>System`，测试目标 `Remote<家>Tests` 在 `Tests/Remotes/<家>`；适配器类型叫 `<家>RemoteAdapter`，身份是它的静态 `identity`；只在 `Sources/Snug/App/Remotes.swift` 登记；契约驱动 `Tests/RemoteContractTests/Drivers/<家>Driver.swift`。`scripts/snug check` 先跑 `check_remote_boundaries`，以上任何一条漏了都会失败；名字检查按 `Sources/Remotes` 下的目录名按子串查核心、系统层、核心测试，UU 出处只能写在单独一行的注释里（`@Test` 描述里也不行），撞上无关子串加进放行表 `allowed`
 - **只登记 UU 时行为逐字不变**：日志名「UU」，日志、界面文案、自检输出与抽出前一致（真机、渲染、诊断三方面验过，数据在设计记录 12.2）。诊断命令改名 `scripts/snug remote-check uu`、`--dump-remote` / `--check-remote`，旧名不留别名
+- **手势只拆了一半**（11-20 发现，主人定等 RustDesk 的 PR 来了一起审、一起拆）：适配器只声明 `injector`，`TouchTap`、`TouchTranslator` 全共用、只认「按下 → 拖动 → 抬起」；RustDesk 触摸模式发不按键的移动（Morzorz/snug 的 `rustdesk-adapter` 分支实测，已在 `4447bb5` 下留言致谢、等他提 PR）。拆法草案和审 PR 的检查单在设计记录 12.4
 - **技术债（本次不做）**：系统层几处判断没有测试——`CaptureLogWatcher` 退避重启、`ControllerReader` 结果新鲜度、`UUAccessibility` 环检测与节点上限、`TouchTap` 分派，要先抽成纯值类型
 
 **Why:** 社区接别家远控时，要能只看文档和契约测试就接进来，不碰核心。
