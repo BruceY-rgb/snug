@@ -1,37 +1,32 @@
 ---
 name: project-domestic-mirror
-description: 国内源与 README 媒体：dl.zephyrxiang.com/snug/ 放安装包、更新包与 README 媒体；看下载量的办法；README 的结构、截图规格与待换的演示动图；证书 2027-01-12 到期
+description: 国内源 dl.zephyrxiang.com/snug/ 放安装包、应用内更新与 README 媒体；看下载量；证书 2027-01-12 到期；README 结构、截图规格、GitHub 图片代理的坑
 metadata:
   node_type: memory
   type: project
   originSessionId: f97709de-705a-489b-bb7a-7353b1fba51c
-  modified: 2026-11-16T05:06:11.511Z
+  modified: 2026-11-19T16:00:00.000Z
 ---
 
-2026-11-13 主人定的：安装包要有国内源（以后官网也从这里取，GitHub Release 照留）；README 的图片、视频也放这里，用原画质。
+11-13 主人定：安装包要有国内源（以后官网也从这里取，GitHub Release 照留）；README 的图片、视频也放这里，用原画质。
 
 **国内源**
-- **摆法**：前缀 `https://dl.zephyrxiang.com/snug/`，和 SpeakMore 发布包同一个桶（桶名、地域、凭据名在不进 git 的 `.machine.env`，这份记忆会公开，别写进来）。`v<版本>/` 发过不改，2.1.0 起多 `Snug-<版本>.pack` 和 `update.json`；`latest/Snug.dmg` 和 `latest/update.json`（App 检查更新的地址）缓存 5 分钟、只往新版本换；`media/<名>.<指纹>.<后缀>` 放 README 媒体
-- **命令**：`ship` 发版时自动传；`mirror <版本>` 补传 GitHub 上已公开的版本；`media <文件…>` 传媒体并打出地址。对象都带 sha256 元数据，重跑一样就跳过、不一样就拒绝
-- **CDN**：防盗链关着（GitHub 图片代理才取得到）；每小时 4 GB 的流量上限和费用跟 SpeakMore 共用
-- **看下载量**（主人问了才查）：`scripts/snug stats`（只读，口径写在 `scripts/download_stats.py` 开头）。国内源的日志读 SpeakMore 的缓存：先在 SpeakMore 仓库跑一次它的 stats 刷新 `.stats/logs`，报告里打出日志截至何时、超过 6 小时会提醒；`.machine.env` 的 `SPEAKMORE_STATS` 指向那个 `.stats` 目录。11-19 踩过的两个坑：
-  - GitHub 的 download_count 按文件计：update.json（App 查更新）、.sha256、.pack 全在里面，只有 .dmg 是安装。11-19 全部文件 2564 次，安装包只有 1738；照全部文件报过一次 2.5K+，多报了约三成
-  - curl 拉 `media/` 的不能当自测（各版本 Linux curl、AI 工具读 README 都会拉，按它认会多认出几十个「自测」IP）；只认 curl 拉某个版本目录下的 update.json / .pack，那只有 ship / mirror 核对时才拉。curl 拉安装包的也不能当自测：2026-11-14 宣传片后十几个不同来源用 curl 下载，还去找 `latest/` 下的校验文件，多半是用户让 AI 助手装的
-- **证书**：`dl.zephyrxiang.com` 的免费证书 2027-01-12 到期，续期记在 SpeakMore 的记忆里；不换，两个项目的下载会一起断
+- **摆法**：`https://dl.zephyrxiang.com/snug/`，和 SpeakMore 同一个桶（桶名、地域、凭据名在不进 git 的 `.machine.env`，这份记忆会公开，别写进来）。`v<版本>/` 发过不改；`latest/Snug.dmg`、`latest/update.json`（App 查更新）缓存 5 分钟、只往新版本换；`media/<名>.<指纹>.<后缀>` 放 README 媒体
+- **命令**：`ship` 自动传；`mirror <版本>` 补传已公开的版本；`media <文件…>` 传媒体并打出地址。对象带 sha256 元数据，一样就跳过、不一样就拒绝
+- **CDN**：防盗链关着（GitHub 图片代理才取得到）；流量上限和费用跟 SpeakMore 共用
+- **下载量**（主人问了才查）：`scripts/snug stats`，口径和自测判定写在 `scripts/download_stats.py` 开头。国内源日志读 SpeakMore 的缓存：先在 SpeakMore 仓库跑一次它的 stats，`.machine.env` 的 `SPEAKMORE_STATS` 指向那个 `.stats`。报数只报 .dmg（11-19 按全部文件报过一次，多报约三成）
+- **证书**：`dl.zephyrxiang.com` 免费证书 2027-01-12 到期，续期记在 SpeakMore 的记忆里；不换，两个项目的下载一起断
 - 上传用的是主账号密钥，以后可换成只能写 `snug/` 前缀的子账号密钥（未做）
 
-**README**（中英文两份一起改，媒体走 `scripts/snug media`）
-- **结构**（11-15 重组）：主线是原生体验（竖屏原生显示、原生手势），放最前；App 资源库、适配所有 App 与手机是它的延伸，别写成工作台。安卓按「全面支持」写，主人定的，不收窄。致谢后、许可证前有一节 Star 趋势（11-16 加）：star-history.com 的外链 SVG，亮暗两版用 `<picture>` 切换，GitHub 会保留 `<picture>` 并走图片代理。它偶尔因 GitHub 接口限流显示出错图，过一会儿自己恢复；要完全可控再改成用 Actions 自己画图传国内源
-- **多屏版重组**（11-18 主人定，随多屏版本发）：主题从「手机上的原生体验」扩到任何设备，标语中英文 README 统一用英文 **Make UU Remote Native on Any Device**，不另配中文标语。结构围绕标语：先「每台设备都是原生体验」（手机 → 平板 → 电脑，手机、平板是别人没做过的，放前面），再「一台 Mac，所有设备」（11-18 晚起分两个小节：先「自定义屏幕」——四项表格对应设置里「添加屏幕」面板、配面板截图、三类屏对比表、一机两向 / 多机轮换 / 跨设备三个组合；再「屏幕列表」——开关、设主屏、无显示器的 Mac mini / Mac Studio、机型库。叫「屏幕」不叫「虚拟屏」：全文都叫 Snug 的屏，对比表里「虚拟屏工具」是别家方案），再 App 资源库、对比、安装使用等。无显示器的 Mac 主人拍板照写（「咱们都做了……先写再说」），不因没实测就不写。配图：手机、平板都展示横竖两种，电脑只有横屏、配设主屏
-- **社区移植**（安装与卸载之后、致谢之前一节表格，顶部下载区有一句引导）：只列已独立成仓的移植，注明独立维护、问题到对应仓库反馈。现有两行：nicocart/snug-win（#18，已发正式版）；rizetngan/snug-for-windows（PR #17 的作者独立成仓，11-18 加、PR 已关，标「社区预览版，尚未发布正式版本」，对方发正式版后来通知时改掉这句）。这次直接改在 main 上（`c9bada3`），multi-screen 合并时 README 要带上这一行
-- **2.6 版 README 已发布**（11-18，随 2.6.2）：顶部是原理图（Codex 生图，Mac 里三块 Snug 屏经 UU Remote 连到手机、平板、电脑，屏和设备同色对应，英文标签；主人要「像科研流程图那样讲清楚」「简洁但不是简单」，否掉了写实风和图标风），下面只留高清视频链接。新图在国内源 `media/` 下按内容命名（hero-architecture、phone-landscape-web、ipad-landscape-vscode、macbook-uu-original / macbook-snug 等）。草稿 `README.draft.md` 与 `.readme-draft/` 只在本机预览（`.git/info/exclude`），正式 README 一律引用国内源地址，图片不进 git
-- **截图取舍**（11-18 主人定）：设为主屏不拍整屏（拍出来就是一块普通桌面），用设置「屏幕」页的截图说明；MacBook 上原版与 Snug 的对比两张都裁掉顶部 33 点的刘海排，原版留上下对称的黑边；iPad 四边铺满不裁；横屏手机裁掉左侧 UU 黑栏、留右侧工具栏
-- **待换**：中间的演示动图（原生手势一节）和高清视频仍是 2.2 的「窗口列表」，等演示录制（[[project-demo-recording]]）完成时一起换
-- **GitHub 的限制**：会删掉 `<video>`，录屏用 animated WebP，完整 MP4 用链接给（链接不走代理，没有大小限制）。外链图片一律经 GitHub 图片代理，大小上限在代理：开源 camo 默认 5 MiB，4.97 MB 实测能取到。代理原样转发字节，不会再压缩
-- **GitHub 图片代理（camo）会缓存空图**（11-18 实测）：新图 settings-add-screen 推上去后在 GitHub 上显示成破图，camo 缓存了一份 200、content-length 0 的响应，国内源本身一直正常（原因未查明，从本机复现不出来）。我们的缓存头是 immutable、一年，不清就一直坏。修法：从 github.com 页面 HTML 里找到这张图的 camo 地址，`curl -X PURGE <camo 地址>`，Fastly 全局生效。所以推完 README 要验 camo 地址取回的字节数，只验国内源原址发现不了
-- **动图体积**几乎全花在整屏滚动的帧上（每帧约 50 KB，打字、弹键盘的帧约 7 KB）；超了先用 img2webp 逐帧 `-q` 只降滚动段，宽度 540 在 README 30% 宽下看不出差别
-- **录屏打码**：按字符范围定位（Vision `boundingBox(for:)`），只糊「用户名@机器名」那一截，敲的命令照常露出；逐帧识别复查，并拿没打码的原画做正对照
-- **手机截图**：17 Pro Max 原图 1320×2868，顶部 273 行是黑边，裁成 `crop=1320:2595:0:273,pad=1320:2598:0:0:black`（ffmpeg，sips 裁不动），和旧图一样 1320×2598，否则并排时高度对不齐
-- **Mac 端截图**不用主人截，渲染样例：设置页用 `.build/debug/Snug --render-settings <目录>`；欢迎页、关于页用装好的正式版渲染（`/Applications/Snug.app/Contents/MacOS/Snug --render-about <目录>`），因为调试版不在 App 包里，图标会变成文件夹、版本显示「开发版」。渲染参数在启动最前面处理完就退出，不碰正在跑的那份。安装一节三张并排（欢迎页、设置、关于），都补到 1040×1096（设置、关于用同色 f6f6f6 上下补边）
+**README**（三种语言一起改，媒体走 `scripts/snug media`，正式 README 只引用国内源地址，图片不进 git）
+- **结构**（11-18 多屏版）：标语统一英文 **Make UU Remote Native on Any Device**；先「每台设备都是原生体验」（手机 → 平板 → 电脑），再「一台 Mac，所有设备」（「自定义屏幕」+「屏幕列表」），再 App 资源库、对比、安装使用、社区移植、致谢、Star 趋势。叫「屏幕」不叫「虚拟屏」；安卓按「全面支持」写；无显示器的 Mac 主人拍板照写
+- 顶部原理图：主人要「像科研流程图那样讲清楚」「简洁但不是简单」，否掉了写实风和图标风
+- **待换**：原生手势一节的演示动图和高清视频仍是 2.2 的，等 [[project-demo-recording]] 完成一起换
+- **截图规格**：设为主屏不拍整屏，用设置页截图；MacBook 原版与 Snug 对比都裁掉顶部 33 点刘海；iPad 四边不裁；横屏手机裁掉左侧 UU 黑栏、留工具栏。17 Pro Max 原图裁成 `crop=1320:2595:0:273,pad=1320:2598:0:0:black`（ffmpeg，sips 裁不动），和旧图对齐
+- **Mac 端截图**自己渲染：设置页 `.build/debug/Snug --render-settings <目录>`；欢迎页、关于页用正式版 `/Applications/Snug.app/Contents/MacOS/Snug --render-about <目录>`（调试版图标是文件夹、版本显示「开发版」）。安装一节三张都补到 1040×1096
+- **GitHub 的限制**：删 `<video>`，录屏用 animated WebP、MP4 给链接；外链图片经 camo 代理，上限约 5 MiB，原样转发不压缩
+- **camo 会缓存空图**（11-18）：缓存了 200、content-length 0 的响应，我们的缓存头一年 immutable，不清就一直坏。修法：从页面 HTML 找到 camo 地址，`curl -X PURGE <camo 地址>`。推完 README 要验 camo 地址取回的字节数
+- **动图体积**几乎全在整屏滚动的帧上，超了用 img2webp 只降滚动段的 `-q`
+- **录屏打码**：Vision `boundingBox(for:)` 按字符范围定位，只糊「用户名@机器名」那一截；逐帧复查，拿原画做对照
 
 相关：[[project-release]]
