@@ -14,7 +14,7 @@
 - [多屏](project-multi-screen.md) — 三条原则、拍板、UU 与 macOS 实测、没做完的、还欠着的对外承诺；设计记录在 git 历史里
 - [远控适配层（11-19 合入）](project-remote-adapter.md) — 对接 UU 的部分可替换、给社区留口子；设计记录 docs/remote-adapter 保留；约定、门禁、技术债
 - [界面原型与令牌](project-ui-redesign.md) — 界面以 design/prototype 为准、令牌在 design/design-tokens.json；先改原型再改代码
-- [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；验证用的步骤不进产品；不为了做而做
+- [产品思维](feedback-product-thinking.md) — 用户无感、可选不强制、隔离干净；不为了做而做；能根治不打补丁、能通用不为单个 App 适配
 - [界面规范](feedback-ui-style.md) — 图标只用 SF Symbols；文字短词、书面、克制；每个状态讲清楚
 - [对外文案](feedback-doc-writing.md) — 书面语、短语式、简短干练；提炼不照抄；第三方只陈述事实；打码只糊一小块
 - [回复 issue](feedback-issue-replies.md) — bug 留给报告人关、做完发版的需求就关；婉拒讲清定位、语气平和；做不到的要把实测和论证讲闭环；主人说发就不再审
