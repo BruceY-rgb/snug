@@ -21,6 +21,12 @@ public enum Screens {
         return Array(ids.prefix(Int(count)))
     }
 
+    /// 能单独管模式和位置的在线屏：去掉镜像组里的从属屏。从属屏显示的是主控屏的画面，模式、位置都跟着主控屏走，
+    /// 单独设模式报「没有这个模式」（实测），单独设原点会把它踢出镜像组（CGDisplayConfiguration.h）。管住主控屏就管住了整组
+    public nonisolated static func standalone() -> [DisplayID]? {
+        online()?.filter { CGDisplayMirrorsDisplay($0) == kCGNullDirectDisplay }
+    }
+
     /// 在「显示器」设置里的名字；找不到就用编号
     public static func name(of id: DisplayID) -> String {
         screen(for: id)?.localizedName ?? "显示器 #\(id)"
